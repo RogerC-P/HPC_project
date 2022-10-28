@@ -20,6 +20,8 @@
 /* Default data type is double, default size is 1024. */
 #include "ludcmp.h"
 
+int world_size;
+int rank;
 
 /* Array initialization. */
 static
@@ -31,16 +33,15 @@ void init_array (int n,
 {
   int i, j;
 
-  for (i = 0; i <= n; i++)
-    {
-      x[i] = i + 1;
-      y[i] = (i+1)/n/2.0 + 1;
-      b[i] = (i+1)/n/2.0 + 42;
-      for (j = 0; j <= n; j++) {
-	      A[i][j] = ((DATA_TYPE) (i+1)*(j+1)) / n;
-        if (i == j) A[i][j] = n;
-      }
+  for (i = 0; i < n; i++) {
+    x[i] = i + 1;
+    y[i] = (i+1)/n/2.0 + 1;
+    b[i] = (i+1)/n/2.0 + 42;
+    for (j = 0; j < n; j++) {
+      A[i][j] = ((DATA_TYPE) (i+1)*(j+1)) / n;
+      if (i == j) A[i][j] = n * n;
     }
+  }
 }
 
 
@@ -59,7 +60,6 @@ void print_array(int n,
   }
 }
 
-
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
@@ -72,12 +72,12 @@ void kernel_ludcmp(int n,
   DATA_TYPE w;
 
 #pragma scop
-  int n_chunks = 4;
+  int n_blocks = 4;
 
-  assert(n % n_chunks == 0);
-  int chunk_size = n / n_chunks;
+  assert(n % n_blocks == 0);
+  int block_size = n / n_blocks;
 
-  int chunks_per_rank = n_chunks / world_size;
+  int blocks_per_rank = n_blocks / world_size;
 
   int psizes[2] = {0, 0};
   MPI_Dims_create(world_size, 2, psizes);
@@ -86,7 +86,7 @@ void kernel_ludcmp(int n,
   for (int i = 0; i < world_size; i++) {
     int sizes[2] = {n, n};
     int distribs[2] = {MPI_DISTRIBUTE_CYCLIC, MPI_DISTRIBUTE_CYCLIC};
-    int dargs[2] = {chunk_size, chunk_size};
+    int dargs[2] = {block_size, block_size};
 
     MPI_Type_create_darray(world_size, i, 2,
                            sizes, distribs, dargs, psizes,
@@ -97,7 +97,7 @@ void kernel_ludcmp(int n,
   MPI_Request *send_requests;
   if (rank == 0) {
     send_requests = (MPI_Request *) malloc(world_size * sizeof(MPI_Request));
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < world_size; i++) {
       MPI_Isend(&A[0][0], 1, dist_types[i],
                 i, 0, MPI_COMM_WORLD, &send_requests[i]);
     }
@@ -107,38 +107,97 @@ void kernel_ludcmp(int n,
   MPI_Type_size(dist_types[rank], &dist_size);
   dist_size /= sizeof(double);
 
-  double *D = (double *) malloc(dist_size * sizeof(double));
+  double *B = (double *) malloc(dist_size * sizeof(double));
 
   MPI_Request recv_request;
-  MPI_Irecv(D, dist_size, MPI_DOUBLE,
+  MPI_Irecv(B, dist_size, MPI_DOUBLE,
             0, 0, MPI_COMM_WORLD, &recv_request);
 
   MPI_Wait(&recv_request, MPI_STATUS_IGNORE);
 
   if (rank == 0) {
-    MPI_Waitall(1, send_requests, MPI_STATUSES_IGNORE);
+    MPI_Waitall(world_size, send_requests, MPI_STATUSES_IGNORE);
   }
 
   int m = n / psizes[0];
 
+  int row_rank = rank / psizes[0];
+  int col_rank = rank % psizes[1];
+
+  double *R_k = (double *) malloc(N * sizeof(double));
+  double *L_k = (double *) malloc(N * sizeof(double));
+
+  int chunk_size = block_size * psizes[0];
+
+  for (int k = 0; k < N; k++) {
+    int chunk = k / chunk_size;
+    int chunk_offset = k % chunk_size;
+
+    int block_idx = chunk_offset / block_size;
+
+    int row_responsible = (block_idx + row_rank) % psizes[0];
+    int col_responsible = (block_idx + col_rank) % psizes[1];
+
+    int row_offset = chunk * block_size;
+    if (block_idx == row_rank) row_offset += chunk_offset % block_size;
+    else if (block_idx > row_rank) row_offset += block_size;
+
+    int col_offset = chunk * block_size;
+    if (block_idx == col_rank) col_offset += chunk_offset % block_size;
+    else if (block_idx > col_rank) col_offset += block_size;
+
+    int row_size = m - col_offset;
+
+    if (row_rank == row_responsible) {
+      memcpy(R_k + col_offset, &B[row_offset * m + col_offset], row_size * sizeof(double));
+      row_offset += 1;
+    }
+
+    // printf("%d %d %d\n", rank, col_offset, row_size);
+    // MPI_Bcast(R_k + col_offset, row_size, MPI_DOUBLE, row_responsible, MPI_COMM_WORLD);
+
+    int col_size = m - row_offset;
+
+    if (col_rank == col_responsible) {
+      for (int j = row_offset; j < row_offset + col_size; j++) {
+        B[j * m + col_offset] /= R_k[k];
+        L_k[j] = B[j * m + col_offset];
+      }
+
+      col_offset += 1;
+    }
+    printf("%d %d %d\n", rank, row_offset, col_size);
+
+    // MPI_Bcast(L_k + row_offset, col_size, MPI_DOUBLE, col_responsible, MPI_COMM_WORLD);
+
+    for (int i = row_offset; i < m; i++) {
+      for (int j = col_offset; j < m; j++) {
+        B[i * m + j] -= R_k[i] * L_k[j];
+      }
+    }
+  }
+
+  free(R_k);
+  free(L_k);
+
+  MPI_Request *recv_requests;
   if (rank == 0) {
-    for (int i = 0; i < m; i++) {
-      for (int j = 0; j < m; j++) {
-        printf("%.2lf ", D[i * m + j]);
-      }
-      printf("\n");
+    recv_requests = (MPI_Request *) malloc(world_size * sizeof(MPI_Request));
+    for (int i = 0; i < world_size; i++) {
+      MPI_Irecv(&A[0][0], 1, dist_types[i],
+                i, 0, MPI_COMM_WORLD, &recv_requests[i]);
     }
   }
 
-  for (int k = 0; k < _PB_N; k++) {
-    for (int i = k + 1; i <= _PB_N; i++) A[i][k] /= A[k][k];
+  MPI_Request send_request;
+  MPI_Isend(B, dist_size, MPI_DOUBLE,
+            0, 0, MPI_COMM_WORLD, &send_request);
 
-    for (int i = k + 1; i < _PB_N; i++) {
-      for (int j = k + 1; j < _PB_N; j++) {
-        A[i][j] -= A[i][k] * A[k][j];
-      }
-    }
+  if (rank == 0) {
+    MPI_Waitall(world_size, recv_requests, MPI_STATUSES_IGNORE);
   }
+
+  MPI_Wait(&send_request, MPI_STATUS_IGNORE);
 
   // Forward, Backward Substitution
   b[0] = 1.0;
@@ -193,7 +252,7 @@ void kernel_ludcmp_original(int n,
   // Forward, Backward Substitution
   b[0] = 1.0;
   y[0] = b[0];
-  for (i = 1; i <= _PB_N; i++) {
+  for (i = 1; i < _PB_N; i++) {
     w = b[i];
     for (j = 0; j < i; j++)
       w = w - A[i][j] * y[j];
@@ -202,9 +261,9 @@ void kernel_ludcmp_original(int n,
 
   x[_PB_N] = y[_PB_N] / A[_PB_N][_PB_N];
 
-  for (i = 0; i <= _PB_N - 1; i++) {
+  for (i = 0; i < _PB_N - 1; i++) {
     w = y[_PB_N - 1 - (i)];
-    for (j = _PB_N - i; j <= _PB_N; j++)
+    for (j = _PB_N - i; j < _PB_N; j++)
       w = w - A[_PB_N - 1 - i][j] * x[j];
     x[_PB_N - 1 - i] = w / A[_PB_N - 1 - (i)][_PB_N - 1-(i)];
   }
@@ -220,21 +279,18 @@ int main(int argc, char** argv)
 
   MPI_Init(NULL, NULL);
 
-  int world_size;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-
-  int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  printf("Hello from rank %d\n", rank);
+  int n_rank = (rank == 0) ? n : 0;
+
+  /* Variable declaration/allocation. */
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n_rank, n_rank);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n_rank);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n_rank);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n_rank);
 
   if (rank == 0) {
-    /* Variable declaration/allocation. */
-    POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-    POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-    POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-    POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
-
     /* Initialize array(s). */
     init_array (n,
           POLYBENCH_ARRAY(A),
@@ -243,8 +299,10 @@ int main(int argc, char** argv)
           POLYBENCH_ARRAY(y));
   }
 
-  /* Start timer. */
-  polybench_start_instruments;
+  if (rank == 0) {
+    /* Start timer. */
+    polybench_start_instruments;
+  }
 
   /* Run kernel. */
   kernel_ludcmp (n,
@@ -253,21 +311,22 @@ int main(int argc, char** argv)
 		 POLYBENCH_ARRAY(x),
 		 POLYBENCH_ARRAY(y));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+  if (rank == 0) {
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+    /* Prevent dead-code elimination. All live-out data must be printed
+       by the function call in argument. */
+    polybench_prevent_dce(print_array(n - 1, POLYBENCH_ARRAY(x)));
+  }
 
-  /* Prevent dead-code elimination. All live-out data must be printed
-     by the function call in argument. */
-  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+  MPI_Finalize();
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(A);
   POLYBENCH_FREE_ARRAY(b);
   POLYBENCH_FREE_ARRAY(x);
   POLYBENCH_FREE_ARRAY(y);
-
-  MPI_Finalize();
 
   return 0;
 }
