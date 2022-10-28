@@ -17,7 +17,7 @@
 # ifndef N
 /* Define the possible dataset sizes. */
 #  ifdef MINI_DATASET
-#   define N 32
+#   define N 8
 #  endif
 
 #  ifdef SMALL_DATASET
@@ -29,11 +29,11 @@
 #  endif
 
 #  ifdef LARGE_DATASET
-#   define N 2000
+#   define N 2048
 #  endif
 
 #  ifdef EXTRALARGE_DATASET
-#   define N 4000
+#   define N 4096
 #  endif
 # endif /* !N */
 
@@ -41,7 +41,7 @@
 
 # ifndef DATA_TYPE
 #  define DATA_TYPE double
-#  define DATA_PRINTF_MODIFIER "%0.2lf "
+#  define DATA_PRINTF_MODIFIER "%0.5lf "
 # endif
 
 
