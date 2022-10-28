@@ -153,6 +153,8 @@ void kernel_ludcmp(int n,
       row_offset += 1;
     }
 
+    if (k == 0) printf("%d %d\n", rank, row_offset);
+
     // printf("%d %d %d\n", rank, col_offset, row_size);
     // MPI_Bcast(R_k + col_offset, row_size, MPI_DOUBLE, row_responsible, MPI_COMM_WORLD);
 
@@ -166,7 +168,6 @@ void kernel_ludcmp(int n,
 
       col_offset += 1;
     }
-    printf("%d %d %d\n", rank, row_offset, col_size);
 
     // MPI_Bcast(L_k + row_offset, col_size, MPI_DOUBLE, col_responsible, MPI_COMM_WORLD);
 
