@@ -21,12 +21,12 @@ def time_bench(dir):
     base_impl = dir + "/" + base_name
     other_impls = map(lambda name: dir + "/" + name, filter(lambda name: name.endswith(".c") and name != base_name, os.listdir(dir)))
 
-    print("Timing base implementation: {}".format(base_impl), end =" ... ", flush=True)
+    print("{}".format(os.path.basename(base_impl)), end =" ... ", flush=True)
     base_result = run_impl(base_impl)
     print("{}".format(base_result))
 
     for other_impl in other_impls:
-        print("Timing other implementation: {}".format(other_impl), end =" ... ", flush=True)
+        print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
         other_result = run_impl(other_impl)
 
         percentage_improvement = round((other_result - base_result) / base_result * 100)

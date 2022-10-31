@@ -21,12 +21,12 @@ def check_bench(dir):
     base_impl = dir + "/" + base_name
     other_impls = map(lambda name: dir + "/" + name, filter(lambda name: name.endswith(".c") and name != base_name, os.listdir(dir)))
 
-    print("Checking base implementation: {}".format(base_impl), end =" ... ", flush=True)
+    print("{}".format(os.path.basename(base_impl)), end =" ... ", flush=True)
     base_result = run_impl(base_impl)
     print("Done!")
 
     for other_impl in other_impls:
-        print("Checking other implementation: {}".format(other_impl), end =" ... ", flush=True)
+        print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
         other_result = run_impl(other_impl)
 
         if same_arrays(base_result, other_result):
