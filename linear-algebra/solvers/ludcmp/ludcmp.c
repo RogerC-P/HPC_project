@@ -72,12 +72,7 @@ void kernel_ludcmp(int n,
   DATA_TYPE w;
 
 #pragma scop
-  int n_blocks = 4;
-
-  assert(n % n_blocks == 0);
-  int block_size = n / n_blocks;
-
-  int blocks_per_rank = n_blocks / world_size;
+  int block_size = 64;
 
   int psizes[2] = {0, 0};
   MPI_Dims_create(world_size, 2, psizes);
@@ -121,11 +116,23 @@ void kernel_ludcmp(int n,
 
   int m = n / psizes[0];
 
-  int row_rank = rank / psizes[0];
-  int col_rank = rank % psizes[1];
+  int row_idx = rank / psizes[0];
+  int col_idx = rank % psizes[1];
 
-  double *R_k = (double *) malloc(N * sizeof(double));
-  double *L_k = (double *) malloc(N * sizeof(double));
+  MPI_Comm row_comm;
+  MPI_Comm_split(MPI_COMM_WORLD, col_idx, rank, &row_comm);
+
+  MPI_Comm col_comm;
+  MPI_Comm_split(MPI_COMM_WORLD, row_idx, rank, &col_comm);
+
+  int row_rank;
+  MPI_Comm_rank(row_comm, &row_rank);
+
+  int col_rank;
+  MPI_Comm_rank(col_comm, &col_rank);
+
+  double *L_k = (double *) malloc(m * sizeof(double));
+  double *U_k = (double *) malloc(m * sizeof(double));
 
   int chunk_size = block_size * psizes[0];
 
@@ -134,9 +141,6 @@ void kernel_ludcmp(int n,
     int chunk_offset = k % chunk_size;
 
     int block_idx = chunk_offset / block_size;
-
-    int row_responsible = block_idx * psizes[0] + col_rank;
-    int col_responsible = block_idx * psizes[1] + row_rank;
 
     int row_offset = chunk * block_size;
     if (block_idx == row_rank) row_offset += chunk_offset % block_size;
@@ -148,35 +152,34 @@ void kernel_ludcmp(int n,
 
     int row_size = m - col_offset;
 
-    if (rank == row_responsible) {
-      memcpy(R_k + col_offset, &B[row_offset * m + col_offset], row_size * sizeof(double));
+    if (row_rank == block_idx) {
+      memcpy(U_k + col_offset, &B[row_offset * m + col_offset], row_size * sizeof(double));
       row_offset += 1;
     }
 
-    MPI_Bcast(R_k + col_offset, row_size, MPI_DOUBLE, row_responsible, MPI_COMM_WORLD);
+    MPI_Bcast(U_k + col_offset, row_size, MPI_DOUBLE, block_idx, row_comm);
 
     int col_size = m - row_offset;
 
-    if (rank == col_responsible) {
+    if (col_rank == block_idx) {
       for (int j = row_offset; j < row_offset + col_size; j++) {
-        B[j * m + col_offset] /= R_k[k];
+        B[j * m + col_offset] /= U_k[col_offset];
         L_k[j] = B[j * m + col_offset];
       }
 
       col_offset += 1;
     }
 
-    if (rank == 0) printf("%d %d %d\n", col_responsible, row_offset, col_size);
-    MPI_Bcast(L_k + row_offset, col_size, MPI_DOUBLE, col_responsible, MPI_COMM_WORLD);
+    MPI_Bcast(L_k + row_offset, col_size, MPI_DOUBLE, block_idx, col_comm);
 
     for (int i = row_offset; i < m; i++) {
       for (int j = col_offset; j < m; j++) {
-        B[i * m + j] -= R_k[i] * L_k[j];
+        B[i * m + j] -= U_k[i] * L_k[j];
       }
     }
   }
 
-  free(R_k);
+  free(U_k);
   free(L_k);
 
   MPI_Request *recv_requests;
