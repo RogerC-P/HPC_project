@@ -15,8 +15,8 @@ ludcmp.o: linear-algebra/solvers/ludcmp/ludcmp.c linear-algebra/solvers/ludcmp/l
 lu: polybench.o lu.o
 	$(CC) $(CFLAGS) lu.o polybench.o -o lu
 
-ludcmp: polybench.o ludcmp.o
-	$(CC) $(CFLAGS) lu.o polybench.o -o lu
+ludcmp: polybench.o lu.o ludcmp.o
+	$(CC) $(CFLAGS) lu.o polybench.o -o ludcmp
 
 clean:
 	rm -f *.o lu ludcmp
