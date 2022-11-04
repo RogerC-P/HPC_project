@@ -71,4 +71,6 @@
 #  define POW_FUN(x,y) pow(x,y)
 # endif
 
+void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A,N,N,n,n));
+
 #endif /* !_LU_H */

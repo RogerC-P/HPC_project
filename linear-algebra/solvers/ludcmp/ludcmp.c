@@ -13,13 +13,17 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <mpi.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
 
 /* Include benchmark-specific header. */
 #include "ludcmp.h"
+#include "lu.h"
 
+int world_size;
+int rank;
 
 /* Array initialization. */
 static
@@ -49,21 +53,22 @@ void init_array (int n,
       A[i][i] = 1;
     }
 
+  // This is really slow
   /* Make the matrix positive semi-definite. */
   /* not necessary for LU, but using same code as cholesky */
-  int r,s,t;
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
-  for (r = 0; r < n; ++r)
-    for (s = 0; s < n; ++s)
-      (POLYBENCH_ARRAY(B))[r][s] = 0;
-  for (t = 0; t < n; ++t)
-    for (r = 0; r < n; ++r)
-      for (s = 0; s < n; ++s)
-	(POLYBENCH_ARRAY(B))[r][s] += A[r][t] * A[s][t];
-    for (r = 0; r < n; ++r)
-      for (s = 0; s < n; ++s)
-	A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
-  POLYBENCH_FREE_ARRAY(B);
+  // int r,s,t;
+  // POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  // for (r = 0; r < n; ++r)
+  //   for (s = 0; s < n; ++s)
+  //     (POLYBENCH_ARRAY(B))[r][s] = 0;
+  // for (t = 0; t < n; ++t)
+  //   for (r = 0; r < n; ++r)
+  //     for (s = 0; s < n; ++s)
+	// (POLYBENCH_ARRAY(B))[r][s] += A[r][t] * A[s][t];
+  //   for (r = 0; r < n; ++r)
+  //     for (s = 0; s < n; ++s)
+	// A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
+  // POLYBENCH_FREE_ARRAY(B);
 
 }
 
@@ -87,11 +92,45 @@ void print_array(int n,
   POLYBENCH_DUMP_FINISH;
 }
 
-
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
 void kernel_ludcmp(int n,
+		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,N,n),
+		   DATA_TYPE POLYBENCH_1D(x,N,n),
+		   DATA_TYPE POLYBENCH_1D(y,N,n))
+{
+  int i, j, k;
+
+  DATA_TYPE w;
+
+#pragma scop
+  // Reuse lu kernel here
+  kernel_lu(n, A);
+
+  if (rank == 0) {
+    for (i = 0; i < _PB_N; i++) {
+       w = b[i];
+       for (j = 0; j < i; j++)
+          w -= A[i][j] * y[j];
+       y[i] = w;
+    }
+
+     for (i = _PB_N-1; i >=0; i--) {
+       w = y[i];
+       for (j = i+1; j < _PB_N; j++)
+          w -= A[i][j] * x[j];
+       x[i] = w / A[i][i];
+    }
+  }
+#pragma endscop
+}
+
+/* Main computational kernel. The whole function will be timed,
+   including the call and return. */
+static
+void kernel_ludcmp_original(int n,
 		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
 		   DATA_TYPE POLYBENCH_1D(b,N,n),
 		   DATA_TYPE POLYBENCH_1D(x,N,n),
@@ -136,9 +175,18 @@ void kernel_ludcmp(int n,
 
 }
 
+#ifndef KERNEL_FUNC
+#define KERNEL_FUNC kernel_ludcmp
+#endif
+
 
 int main(int argc, char** argv)
 {
+  MPI_Init(NULL, NULL);
+
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
   /* Retrieve problem size. */
   int n = N;
 
@@ -148,7 +196,6 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
 
-
   /* Initialize array(s). */
   init_array (n,
 	      POLYBENCH_ARRAY(A),
@@ -156,29 +203,35 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(x),
 	      POLYBENCH_ARRAY(y));
 
-  /* Start timer. */
-  polybench_start_instruments;
+  if (rank == 0) {
+    /* Start timer. */
+    polybench_start_instruments;
+  }
 
   /* Run kernel. */
-  kernel_ludcmp (n,
+  KERNEL_FUNC (n,
 		 POLYBENCH_ARRAY(A),
 		 POLYBENCH_ARRAY(b),
 		 POLYBENCH_ARRAY(x),
 		 POLYBENCH_ARRAY(y));
 
-  /* Stop and print timer. */
-  polybench_stop_instruments;
-  polybench_print_instruments;
+  if (rank == 0) {
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
 
-  /* Prevent dead-code elimination. All live-out data must be printed
-     by the function call in argument. */
-  polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+    /* Prevent dead-code elimination. All live-out data must be printed
+       by the function call in argument. */
+    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+  }
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(A);
   POLYBENCH_FREE_ARRAY(b);
   POLYBENCH_FREE_ARRAY(x);
   POLYBENCH_FREE_ARRAY(y);
+
+  MPI_Finalize();
 
   return 0;
 }
