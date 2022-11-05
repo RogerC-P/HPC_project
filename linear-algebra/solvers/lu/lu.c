@@ -219,8 +219,28 @@ void kernel_lu(int n,
     MPI_Wait(row_request, MPI_STATUS_IGNORE);
     MPI_Wait(col_request, MPI_STATUS_IGNORE);
 
-    gemm(col_size, row_size, block_size,
+    int col_offset_ = k0;
+    if (row_rank == (block_idx + 1) % psizes[0]) col_offset_ += block_size;
+
+    int row_offset = k0;
+    if (col_rank == (block_idx + 1) % psizes[0]) row_offset_ += block_size;
+
+    if (bk > 0) pthread_join(mmm_thread, NULL);
+
+    gemm(col_offset_ - col_offset, row_offset_ - row_offset, block_size,
          0, 0, 0, 0, col_offset, row_offset,
+         L_k, U_k, B, -1, 1);
+
+    gemm(block_size, m - row_offset_, block_size,
+         0, 0, 0, row_offset_ - row_offset, col_offset, row_offset_,
+         L_k, U_k, B, -1, 1);
+
+    gemm(m - col_offset_, block_size, block_size,
+         col_offset_ - col_offset, 0, 0, 0, col_offset_, row_offset,
+         L_k, U_k, B, -1, 1);
+
+    gemm(m - col_offset_, m - row_offset_, block_size,
+         col_offset_ - col_offset, 0, 0, row_offset_ - row_offset, col_offset_, row_offset_,
          L_k, U_k, B, -1, 1);
   }
 
