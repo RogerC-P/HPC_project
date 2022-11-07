@@ -111,7 +111,7 @@ void kernel_lu(int n,
   double *B = (double *) malloc(dist_size * sizeof(double));
 
   int position = 0;
-  MPI_Pack(&A[0][0], 1, dist_types[rank], &B[0][0], dist_size, &position, MPI_COMM_WORLD) ;
+  MPI_Pack(&A[0][0], 1, dist_types[rank], B, dist_size, &position, MPI_COMM_WORLD) ;
 
   int m = n / psizes[0];
 
@@ -137,25 +137,32 @@ void kernel_lu(int n,
   double *U_k = (double *) malloc(block_size * m * sizeof(double));
   double *L_k = (double *) malloc(m * block_size * sizeof(double));
 
-  for (int bk = 0; bk < N / block_size; bk++) {
-    int chunk_idx = bk / psizes[0];
-    int block_idx = bk % psizes[0];
+  double *U_p = (double *) malloc(block_size * m * sizeof(double));
+  double *L_p = (double *) malloc(m * block_size * sizeof(double));
 
-    int k0 = chunk_idx * block_size;
+  void finish_outer(int offset, int block_idx) {
+    int col_offset = offset;
+    if (col_rank == block_idx) col_offset += block_size;
+
+    int row_offset = offset;
+    if (row_rank == block_idx) row_offset += block_size;
+
+    int row_size = m - row_offset;
+    int col_size = m - col_offset;
 
     if (row_rank == block_idx && col_rank == block_idx) {
-      for (int k = k0; k < k0 + block_size; k++) {
-        for (int j = k0; j < k0 + block_size; j++) B[k * m + j] /= B[k * m + k];
+      for (int k = offset; k < offset + block_size; k++) {
+        for (int j = offset; j < offset + block_size; j++) B[k * m + j] /= B[k * m + k];
 
-        for (int i = k0 + 1; i < k0 + block_size; i++) {
-          for (int j = k0 + 1; j < k0 + block_size; j++) {
+        for (int i = offset + 1; i < offset + block_size; i++) {
+          for (int j = offset + 1; j < offset + block_size; j++) {
             B[i * m + j] -= B[i * m + k] * B[k * m + j];
           }
         }
 
         for (int i = 0; i < 0 + block_size; i++) {
           for (int j = 0; j < 0 + block_size; j++)
-            LU_k[i * block_size + j] = B[(k0 + i) * m + (k0 + j)];
+            LU_k[i * block_size + j] = B[(offset + i) * m + (offset + j)];
         }
       }
     }
@@ -169,46 +176,37 @@ void kernel_lu(int n,
       MPI_Ibcast(LU_k, block_size * block_size, MPI_DOUBLE, block_idx, col_comm, &col_request);
     }
 
-    if (row_rank == block_idx) MPI_Wait(row_request, MPI_STATUS_IGNORE);
-    if (col_rank == block_idx) MPI_Wait(col_request, MPI_STATUS_IGNORE);
-
-    int col_offset = k0;
-    if (col_rank == block_idx) col_offset += block_size;
-
-    int row_offset = k0;
-    if (row_rank == block_idx) row_offset += block_size;
-
-    int row_size = m - row_offset;
-    int col_size = m - col_offset;
+    if (row_rank == block_idx) MPI_Wait(&row_request, MPI_STATUS_IGNORE);
+    if (col_rank == block_idx) MPI_Wait(&col_request, MPI_STATUS_IGNORE);
 
     if (row_rank == block_idx) {
-      for (int k = k0; k < k0 + block_size; k++) {
-        for (int i = k + 1; i < k0 + block_size; i++) {
-          for (int j = k0; j < m; j++) {
+      for (int k = offset; k < offset + block_size; k++) {
+        for (int i = k + 1; i < offset + block_size; i++) {
+          for (int j = offset; j < m; j++) {
             B[i * m + j] -= LU_k[i * block_size + k] * B[k * m + j];
           }
         }
       }
 
-      for (int i = 0; i < block_size; i++) {
-        for (int j = 0; j < row_size; j++) {
-          U_k[i * row_size + j] = B[(i + k0) * m + (j + row_offset)];
+      for (int i = offset; i < offset + block_size; i++) {
+        for (int j = offset; j < m; j++) {
+          U_k[i * m + j] = B[i * m + j];
         }
       }
     }
 
     if (col_rank == block_idx) {
-      for (int k = k0; k < k0 + block_size; k++) {
-        for (int i = k0; i < m; i++) {
-          for (int j = k + 1; j < k0 + block_size; j++) {
+      for (int k = offset; k < offset + block_size; k++) {
+        for (int i = offset; i < m; i++) {
+          for (int j = k + 1; j < offset + block_size; j++) {
             B[i * m + j] -= B[i * m + k] * LU_k[k * block_size + j];
           }
         }
       }
 
-      for (int i = 0; i < col_size; i++) {
-        for (int j = 0; j < block_size; j++) {
-          L_k[i * block_size + j] = B[(i + col_offset) * m + (j + k0)];
+      for (int i = offset; i < m; i++) {
+        for (int j = offset; j < offset + block_size; j++) {
+          L_k[i * block_size + j] = B[i * m + j];
         }
       }
     }
@@ -216,32 +214,73 @@ void kernel_lu(int n,
     MPI_Ibcast(U_k, block_size * row_size, MPI_DOUBLE, block_idx, row_comm, &row_request);
     MPI_Ibcast(L_k, col_size * block_size, MPI_DOUBLE, block_idx, col_comm, &col_request);
 
-    MPI_Wait(row_request, MPI_STATUS_IGNORE);
-    MPI_Wait(col_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&row_request, MPI_STATUS_IGNORE);
+    MPI_Wait(&col_request, MPI_STATUS_IGNORE);
+  }
 
-    int col_offset_ = k0;
-    if (row_rank == (block_idx + 1) % psizes[0]) col_offset_ += block_size;
+  void update_outer(int offset, int block_idx) {
+    if (row_rank == block_idx && col_rank == block_idx) {
+      gemm(block_size, block_size, block_size,
+           offset, 0, 0, offset, offset, offset,
+           m, block_size, block_size, m, m, m,
+           L_p, U_p, B, -1, 1);
+    }
 
-    int row_offset = k0;
-    if (col_rank == (block_idx + 1) % psizes[0]) row_offset_ += block_size;
+    if (col_rank == block_idx) {
+      gemm(m - offset - block_size, block_size, block_size,
+           offset + block_size, 0, 0, offset, offset + block_size, offset,
+           m, block_size, block_size, m, m, m,
+           L_p, U_p, B, -1, 1);
+    }
 
-    if (bk > 0) pthread_join(mmm_thread, NULL);
+    if (row_rank == block_idx) {
+      gemm(block_size, m - offset - block_size, block_size,
+           offset, 0, 0, offset + block_size, offset, offset + block_size,
+           m, block_size, block_size, m, m, m,
+           L_p, U_p, B, -1, 1);
+    }
+  }
 
-    gemm(col_offset_ - col_offset, row_offset_ - row_offset, block_size,
-         0, 0, 0, 0, col_offset, row_offset,
-         L_k, U_k, B, -1, 1);
+  void update_inner(int offset) {
+    gemm(m - offset, m - offset, block_size,
+         offset, 0, 0, offset, offset, offset,
+         m, block_size, block_size, m, m, m,
+         L_p, U_p, B, -1, 1);
+  }
 
-    gemm(block_size, m - row_offset_, block_size,
-         0, 0, 0, row_offset_ - row_offset, col_offset, row_offset_,
-         L_k, U_k, B, -1, 1);
+  int compute_offset(int bk) {
+    int chunk_idx = bk / psizes[0];
+    int block_idx = bk % psizes[0];
 
-    gemm(m - col_offset_, block_size, block_size,
-         col_offset_ - col_offset, 0, 0, 0, col_offset_, row_offset,
-         L_k, U_k, B, -1, 1);
+    return chunk_idx * block_size;
+  }
 
-    gemm(m - col_offset_, m - row_offset_, block_size,
-         col_offset_ - col_offset, 0, 0, row_offset_ - row_offset, col_offset_, row_offset_,
-         L_k, U_k, B, -1, 1);
+  void swap(double **a, double **b) {
+    void *tmp = *a;
+    *a = *b;
+    *b = tmp;
+  }
+
+  for (int bk = 0; bk < N / block_size; bk++) {
+    int block_idx = bk % psizes[0];
+
+    #pragma omp parallel sections
+    {
+      #pragma omp section
+      {
+        int offset = compute_offset(bk);
+        if (bk > 0) update_outer(offset, block_idx);
+        finish_outer(offset, block_idx);
+      }
+
+      #pragma omp section
+      {
+        if (bk > 0) update_inner(compute_offset(bk + 1));
+      }
+    }
+
+    swap(&L_k, &L_p);
+    swap(&U_k, &U_p);
   }
 
   free(U_k);
