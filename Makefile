@@ -1,6 +1,6 @@
 CC=mpicc
 
-override CFLAGS += -O3 -march=native
+override CFLAGS += -O3 -march=native -g
 # override CFLAGS += -g -march=native #-fsanitize=address
 
 SHARED = $(wildcard shared/*)

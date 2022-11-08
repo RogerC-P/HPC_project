@@ -9,7 +9,9 @@
  */
 /* gemm.c: this file is part of PolyBench/C */
 
+#include <math.h>
 #include <immintrin.h>
+#include <omp.h>
 
 #define BI 20
 #define BJ 40
@@ -77,15 +79,21 @@
   _mm256_storeu_pd(&C[(u + 3) * ldc + v + 4], c13); \
 } while (0);
 
-void gemm(int m, int n, int k,
+#ifdef PARALLEL_GEMM
+void pgemm
+#else
+void gemm
+#endif
+    (int m, int n, int k,
 		 double alpha, double *A, int lda,
      double *B, int ldb,
 		 double beta, double *C, int ldc)
 {
-#pragma scop
   __m256d valpha = _mm256_set1_pd(alpha);
 
+#ifdef PARALLEL_GEMM
   #pragma omp parallel for
+#endif
   for (int i = 0; i < m - BI + 1; i += BI) {
     int j;
     for (j = 0; j < n - BJ + 1; j += BJ) {
@@ -133,5 +141,4 @@ void gemm(int m, int n, int k,
       }
     }
   }
-#pragma endscop
 }

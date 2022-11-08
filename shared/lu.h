@@ -12,6 +12,8 @@
 #include <mpi.h>
 
 #include <gemm.h>
+#define PARALLEL_GEMM
+#include <gemm.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -113,10 +115,17 @@ void lu(int n, double *A)
 
   int n_blocks = n / block_size;
 
+  #pragma omp parallel num_threads(1)
   for (int bk = 0; bk < n_blocks; bk++) {
     int block_idx = bk % psizes[0];
 
-    #pragma omp parallel sections
+    int ro_k = ro(bk);
+    int ro_n = ro(bk + 1);
+
+    int co_k = co(bk);
+    int co_n = co(bk + 1);
+
+    #pragma omp sections
     {
       #pragma omp section
       {
@@ -124,40 +133,40 @@ void lu(int n, double *A)
           if (row_rank == block_idx && col_rank == block_idx) {
             gemm(block_size, block_size, block_size,
                  -1, L_p, block_size,
-                 U_p, m - ro(bk),
-                 1, B + co(bk) * m + ro(bk), m);
+                 U_p, m - ro_k,
+                 1, B + co_k * m + ro_k, m);
           }
 
           if (col_rank == block_idx) {
-            gemm(block_size, m - ro(bk + 1), block_size,
+            gemm(block_size, m - ro_n, block_size,
                  -1, L_p, block_size,
-                 U_p + (ro(bk + 1) - ro(bk)), m - ro(bk),
-                 1, B + co(bk) * m + ro(bk + 1), m);
+                 U_p + (ro_n - ro_k), m - ro_k,
+                 1, B + co_k * m + ro_n, m);
           }
 
           if (row_rank == block_idx) {
-            gemm(m - co(bk + 1), block_size, block_size,
-                 -1, L_p + (co(bk + 1) - co(bk)) * block_size, block_size,
-                 U_p, m - ro(bk),
-                 1, B + co(bk + 1) * m + ro(bk), m);
+            gemm(m - co_n, block_size, block_size,
+                 -1, L_p + (co_n - co_k) * block_size, block_size,
+                 U_p, m - ro_k,
+                 1, B + co_n * m + ro_k, m);
           }
         }
 
         if (row_rank == block_idx && col_rank == block_idx) {
-          for (int k = ro(bk); k < ro(bk) + block_size; k++) {
+          for (int k = ro_k; k < ro_k + block_size; k++) {
             double B_kk = B[k * m + k];
-            for (int i = k + 1; i < co(bk) + block_size; i++) B[i * m + k] /= B_kk;
+            for (int i = k + 1; i < co_k + block_size; i++) B[i * m + k] /= B_kk;
 
-            for (int i = k + 1; i < co(bk) + block_size; i++) {
-              for (int j = k + 1; j < ro(bk) + block_size; j++) {
+            for (int i = k + 1; i < co_k + block_size; i++) {
+              for (int j = k + 1; j < ro_k + block_size; j++) {
                 B[i * m + j] -= B[i * m + k] * B[k * m + j];
               }
             }
           }
 
-          for (int i = co(bk); i < co(bk) + block_size; i++) {
-            for (int j = ro(bk); j < ro(bk) + block_size; j++)
-              LU_k[(i - co(bk)) * block_size + (j - ro(bk))] = B[i * m + j];
+          for (int i = co_k; i < co_k + block_size; i++) {
+            for (int j = ro_k; j < ro_k + block_size; j++)
+              LU_k[(i - co_k) * block_size + (j - ro_k)] = B[i * m + j];
           }
         }
 
@@ -174,44 +183,67 @@ void lu(int n, double *A)
         if (col_rank == block_idx) MPI_Wait(&row_request, MPI_STATUS_IGNORE);
 
         if (col_rank == block_idx) {
-          for (int k = co(bk); k < co(bk) + block_size; k++) {
-            for (int i = k + 1; i < co(bk) + block_size; i++) {
-              for (int j = ro(bk + 1); j < m; j++) {
-                B[i * m + j] -= LU_k[(i - co(bk)) * block_size + (k - co(bk))] * B[k * m + j];
+          for (int k = co_k; k < co_k + block_size; k++) {
+            for (int i = k + 1; i < co_k + block_size; i++) {
+              for (int j = ro_n; j < m; j++) {
+                B[i * m + j] -= LU_k[(i - co_k) * block_size + (k - co_k)] * B[k * m + j];
               }
             }
           }
 
-          for (int i = co(bk); i < co(bk) + block_size; i++) {
-            for (int j = ro(bk + 1); j < m; j++) {
-              U_k[(i - co(bk)) * (m - ro(bk + 1)) + (j - ro(bk + 1))] = B[i * m + j];
+          for (int i = co_k; i < co_k + block_size; i++) {
+            for (int j = ro_n; j < m; j++) {
+              U_k[(i - co_k) * (m - ro_n) + (j - ro_n)] = B[i * m + j];
             }
           }
         }
 
         if (row_rank == block_idx) {
-          for (int k = ro(bk); k < ro(bk) + block_size; k++) {
-            for (int i = co(bk + 1); i < m; i++)
-              B[i * m + k] /= LU_k[(k - ro(bk)) * block_size + (k - ro(bk))];
+          // for (int k = ro_k; k < ro_k + block_size; k++) {
+          //   for (int i = co_n; i < m; i++)
+          //     B[i * m + k] /= LU_k[(k - ro_k) * block_size + (k - ro_k)];
 
-            for (int i = co(bk + 1); i < m; i++) {
-              for (int j = k + 1; j < ro(bk) + block_size; j++) {
-                B[i * m + j] -= B[i * m + k] * LU_k[(k - ro(bk)) * block_size + (j - ro(bk))];
+          //   for (int i = co_n; i < m; i++) {
+          //     for (int j = k + 1; j < ro_k + block_size; j++) {
+          //       B[i * m + j] -= B[i * m + k] * LU_k[(k - ro_k) * block_size + (j - ro_k)];
+          //     }
+          //   }
+          // }
+
+          int bi = 20;
+
+          int i;
+          for (i = co_n; i < m - bi + 1; i += bi) {
+            for (int k = ro_k; k < ro_k + block_size; k++) {
+              for (int u = i; u < i + bi; u++) {
+                B[u * m + k] /= LU_k[(k - ro_k) * block_size + (k - ro_k)];
+                for (int j = k + 1; j < ro_k + block_size; j++) {
+                  B[u * m + j] -= B[u * m + k] * LU_k[(k - ro_k) * block_size + (j - ro_k)];
+                }
               }
             }
           }
 
-          for (int i = co(bk + 1); i < m; i++) {
-            for (int j = ro(bk); j < ro(bk) + block_size; j++) {
-              L_k[(i - co(bk + 1)) * block_size + (j - ro(bk))] = B[i * m + j];
+          for (int k = ro_k; k < ro_k + block_size; k++) {
+            for (int u = i;u < m; u++) {
+              B[u * m + k] /= LU_k[(k - ro_k) * block_size + (k - ro_k)];
+              for (int j = k + 1; j < ro_k + block_size; j++) {
+                B[u * m + j] -= B[u * m + k] * LU_k[(k - ro_k) * block_size + (j - ro_k)];
+              }
+            }
+          }
+
+          for (int i = co_n; i < m; i++) {
+            for (int j = ro_k; j < ro_k + block_size; j++) {
+              L_k[(i - co_n) * block_size + (j - ro_k)] = B[i * m + j];
             }
           }
         }
 
-        MPI_Ibcast(L_k, (m - co(bk + 1)) * block_size, MPI_DOUBLE,
+        MPI_Ibcast(L_k, (m - co_n) * block_size, MPI_DOUBLE,
                    block_idx, row_comm, &row_request);
 
-        MPI_Ibcast(U_k, block_size * (m - ro(bk + 1)), MPI_DOUBLE,
+        MPI_Ibcast(U_k, block_size * (m - ro_n), MPI_DOUBLE,
                    block_idx, col_comm, &col_request);
 
         MPI_Wait(&row_request, MPI_STATUS_IGNORE);
@@ -221,16 +253,19 @@ void lu(int n, double *A)
       #pragma omp section
       {
         if (bk > 0) {
-          gemm(m - co(bk + 1), m - ro(bk + 1), block_size,
-               -1, L_p + (co(bk + 1) - co(bk)) * block_size, block_size,
-               U_p + (ro(bk + 1) - ro(bk)), m - ro(bk),
-               1, B + co(bk + 1) * m + ro(bk + 1), m);
+          gemm(m - co_n, m - ro_n, block_size,
+                -1, L_p + (co_n - co_k) * block_size, block_size,
+                U_p + (ro_n - ro_k), m - ro_k,
+                1, B + co_n * m + ro_n, m);
         }
       }
     }
 
-    swap(&L_k, &L_p);
-    swap(&U_k, &U_p);
+    #pragma omp single
+    {
+      swap(&L_k, &L_p);
+      swap(&U_k, &U_p);
+    }
   }
 
   MPI_Request *recv_requests;

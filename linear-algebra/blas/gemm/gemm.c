@@ -16,6 +16,8 @@
 #include <immintrin.h>
 
 #include <gemm.h>
+#define PARALLEL_GEMM
+#include <gemm.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -78,7 +80,7 @@ void kernel_gemm(int ni, int nj, int nk,
 		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
 {
 #pragma scop
-  gemm(ni, nj, nk, alpha, &A[0][0], nk, &B[0][0], nj, beta, &C[0][0], nj);
+  pgemm(ni, nj, nk, alpha, &A[0][0], nk, &B[0][0], nj, beta, &C[0][0], nj);
 #pragma endscop
 }
 
@@ -120,7 +122,7 @@ int main(int argc, char** argv)
   int nj = NJ;
   int nk = NK;
 
-  // polybench_program_total_flops = (double) ni * (double) nj * (2 * (double) nk - 1);
+  polybench_program_total_flops = (double) ni * (double) nj * (2 * (double) nk - 1);
 
   /* Variable declaration/allocation. */
   DATA_TYPE alpha;
