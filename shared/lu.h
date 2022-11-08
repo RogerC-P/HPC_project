@@ -12,8 +12,6 @@
 #include <mpi.h>
 
 #include <gemm.h>
-#define PARALLEL_GEMM
-#include <gemm.h>
 
 /* Include polybench common header. */
 #include <polybench.h>

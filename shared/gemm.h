@@ -79,11 +79,7 @@
   _mm256_storeu_pd(&C[(u + 3) * ldc + v + 4], c13); \
 } while (0);
 
-#ifdef PARALLEL_GEMM
-void pgemm
-#else
 void gemm
-#endif
     (int m, int n, int k,
 		 double alpha, double *A, int lda,
      double *B, int ldb,
@@ -140,5 +136,26 @@ void gemm
         C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
       }
     }
+  }
+}
+
+void pgemm (int m, int n, int k,
+		 double alpha, double *A, int lda,
+     double *B, int ldb,
+		 double beta, double *C, int ldc)
+{
+  #pragma omp parallel
+  {
+    int n_threads = omp_get_num_threads();
+    int i = omp_get_thread_num();
+
+    int m_thread = m / n_threads;
+    int offset = m_thread * i;
+    if (i == n_threads - 1) m_thread = m - offset;
+
+    gemm(m_thread, n, k, alpha,
+         A + offset * lda, lda,
+         B, ldb,
+         beta, C + offset * ldc, ldc);
   }
 }

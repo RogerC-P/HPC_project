@@ -16,8 +16,6 @@
 #include <immintrin.h>
 
 #include <gemm.h>
-#define PARALLEL_GEMM
-#include <gemm.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -122,7 +120,9 @@ int main(int argc, char** argv)
   int nj = NJ;
   int nk = NK;
 
+#ifdef POLYBENCH_GFLOPS
   polybench_program_total_flops = (double) ni * (double) nj * (2 * (double) nk - 1);
+#endif
 
   /* Variable declaration/allocation. */
   DATA_TYPE alpha;

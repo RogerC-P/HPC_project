@@ -104,7 +104,9 @@ int main(int argc, char** argv)
   /* Retrieve problem size. */
   int n = N;
 
+#ifdef POLYBENCH_GFLOPS
   polybench_program_total_flops = (4 * pow(n, 3) - 3 * pow(n, 2) - n) / 6;
+#endif
 
   /* Variable declaration/allocation. */
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
