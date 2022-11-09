@@ -114,23 +114,28 @@ int main(int argc, char** argv)
   /* Initialize array(s). */
   init_array (n, POLYBENCH_ARRAY(A));
 
-  if (rank == 0) {
-    /* Start timer. */
-    polybench_start_instruments;
+  for (int i = 0; i < N_RUNS; i++) {
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (rank == 0) {
+      /* Start timer. */
+      polybench_start_instruments;
+    }
+
+    /* Run kernel. */
+    kernel_lu (n, POLYBENCH_ARRAY(A));
+
+    if (rank == 0) {
+      /* Stop and print timer. */
+      polybench_stop_instruments;
+      polybench_print_instruments;
+
+      /* Prevent dead-code elimination. All live-out data must be printed
+         by the function call in argument. */
+      polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A)));
+    }
   }
 
-  /* Run kernel. */
-  kernel_lu (n, POLYBENCH_ARRAY(A));
-
-  if (rank == 0) {
-    /* Stop and print timer. */
-    polybench_stop_instruments;
-    polybench_print_instruments;
-
-    /* Prevent dead-code elimination. All live-out data must be printed
-       by the function call in argument. */
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A)));
-  }
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(A);

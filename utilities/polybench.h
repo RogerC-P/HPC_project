@@ -237,5 +237,8 @@ extern void polybench_free_data(void* ptr);
 extern void polybench_flush_cache();
 extern void polybench_prepare_instruments();
 
+#ifndef N_RUNS
+#define N_RUNS 1
+#endif
 
 #endif /* !POLYBENCH_H */

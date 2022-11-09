@@ -34,10 +34,11 @@ void lu(int n, double *A)
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  int block_size = 200;
-
   int psizes[2] = {0, 0};
   MPI_Dims_create(world_size, 2, psizes);
+
+  int block_size = 200;
+  while (n % (psizes[0] * block_size) != 0) block_size -= 1;
 
   MPI_Datatype *dist_types = (MPI_Datatype *) malloc(world_size * sizeof(MPI_Datatype));
   for (int i = 0; i < world_size; i++) {
@@ -113,7 +114,7 @@ void lu(int n, double *A)
 
   int n_blocks = n / block_size;
 
-  #pragma omp parallel num_threads(1)
+  #pragma omp parallel
   for (int bk = 0; bk < n_blocks; bk++) {
     int block_idx = bk % psizes[0];
 
@@ -252,9 +253,9 @@ void lu(int n, double *A)
       {
         if (bk > 0) {
           gemm(m - co_n, m - ro_n, block_size,
-                -1, L_p + (co_n - co_k) * block_size, block_size,
-                U_p + (ro_n - ro_k), m - ro_k,
-                1, B + co_n * m + ro_n, m);
+               -1, L_p + (co_n - co_k) * block_size, block_size,
+               U_p + (ro_n - ro_k), m - ro_k,
+               1, B + co_n * m + ro_n, m);
         }
       }
     }
