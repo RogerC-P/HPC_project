@@ -17,6 +17,8 @@ def time_bench(dir):
     print("Checking performance of bench '{}'".format(bench_name))
 
     dataset_sizes = ["MINI_DATASET", "SMALL_DATASET", "MEDIUM_DATASET", "LARGE_DATASET", "EXTRALARGE_DATASET"]
+    dataset_sizes = ["LARGE_DATASET"]
+
     for dataset_size in dataset_sizes:
         print(f"Running for dataset size {dataset_size}")
 

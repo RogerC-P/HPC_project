@@ -2,7 +2,7 @@ import os
 
 
 def main():
-    check_benches("./linear-algebra/blas/gemm", "./linear-algebra/solvers/ludcmp")
+    check_benches("./linear-algebra/solvers/ludcmp")
 
 
 def check_benches(*dirs):
