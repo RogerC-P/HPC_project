@@ -2,7 +2,7 @@ import os
 
 
 def main():
-    time_benches("./linear-algebra/blas/gemm", "./linear-algebra/solvers/ludcmp")
+    time_benches("./linear-algebra/solvers/ludcmp")
 
 
 def time_benches(*dirs):
@@ -16,32 +16,36 @@ def time_bench(dir):
 
     print("Checking performance of bench '{}'".format(bench_name))
 
-    # Assume base benchmark has same name as containing directory
-    base_name = bench_name + ".c"
-    base_impl = dir + "/" + base_name
-    other_impls = map(lambda name: dir + "/" + name, filter(lambda name: name.endswith(".c") and name != base_name, os.listdir(dir)))
+    dataset_sizes = ["MINI_DATASET", "SMALL_DATASET", "MEDIUM_DATASET", "LARGE_DATASET", "EXTRALARGE_DATASET"]
+    for dataset_size in dataset_sizes:
+        print(f"Running for dataset size {dataset_size}")
 
-    print("{}".format(os.path.basename(base_impl)), end =" ... ", flush=True)
-    base_result = run_impl(base_impl)
-    print("{} cycles".format(base_result))
+        # Assume base benchmark has same name as containing directory
+        base_name = bench_name + ".c"
+        base_impl = dir + "/" + base_name
+        other_impls = map(lambda name: dir + "/" + name, filter(lambda name: name.endswith(".c") and name != base_name, os.listdir(dir)))
 
-    for other_impl in other_impls:
-        print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
-        other_result = run_impl(other_impl)
+        print("{}".format(os.path.basename(base_impl)), end =" ... ", flush=True)
+        base_result = run_impl(base_impl, dataset_size)
+        print("{} cycles".format(base_result))
 
-        percentage_improvement = round((other_result - base_result) / base_result * 100)
-        msg = "{} cycles ({:+}%)".format(other_result, percentage_improvement);
+        for other_impl in other_impls:
+            print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
+            other_result = run_impl(other_impl, dataset_size)
 
-        if other_result < base_result:
-            printGreen(msg)
-        elif other_result > base_result:
-            printRed(msg)
-        else:
-            print(msg)
+            percentage_improvement = round((other_result - base_result) / base_result * 100)
+            msg = "{} cycles ({:+}%)".format(other_result, percentage_improvement);
+
+            if other_result < base_result:
+                printGreen(msg)
+            elif other_result > base_result:
+                printRed(msg)
+            else:
+                print(msg)
 
 
 
-def run_impl(impl):
+def run_impl(impl, dataset_size = "MEDIUM_DATASET"):
     header = impl.replace(".c", "")
 
     if "mpi" in impl:
@@ -49,7 +53,7 @@ def run_impl(impl):
     else:
         compiler = "gcc"
 
-    flags = ["-O0"]
+    flags = ["-O3"]
     if "fma" in impl:
         flags.append("-mfma")
     if "openmp" in impl:
@@ -58,7 +62,7 @@ def run_impl(impl):
     joined_flags = " ".join(flags)
 
     # Compile implementation
-    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DPOLYBENCH_DUMP_ARRAYS -o executable")
+    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -D{dataset_size} -DPOLYBENCH_TIME -DPOLYBENCH_CYCLE_ACCURATE_TIMER -o executable")
     # Run and get output
     output = os.popen("./executable 2>&1").read()
     time = int(output)
