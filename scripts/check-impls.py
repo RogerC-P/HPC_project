@@ -33,14 +33,30 @@ def check_bench(dir):
             printGreen("Success!")
         else:
             printRed("Failure!")
+            
+            #print(f"expected result: {base_result}")
+            #print(f"actual result:   {other_result}")
 
 
 
 def run_impl(impl):
     header = impl.replace(".c", "")
 
+    if "mpi" in impl:
+        compiler = "mpicc"
+    else:
+        compiler = "gcc"
+
+    flags = ["-O0"]
+    if "fma" in impl:
+        flags.append("-mfma")
+    if "openmp" in impl:
+        flags.append("-fopenmp")
+
+    joined_flags = " ".join(flags)
+
     # Compile implementation
-    os.system("gcc -O0 -mfma -fopenmp -I utilities -I {} utilities/polybench.c {} -DPOLYBENCH_DUMP_ARRAYS -o executable".format(header, impl))
+    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DPOLYBENCH_DUMP_ARRAYS -o executable")
     # Run and get output
     output = os.popen("./executable 2>&1").read()
     digits = [float(x) for x in output.split() if isfloat(x)]

@@ -23,14 +23,14 @@ def time_bench(dir):
 
     print("{}".format(os.path.basename(base_impl)), end =" ... ", flush=True)
     base_result = run_impl(base_impl)
-    print("{}".format(base_result))
+    print("{} cycles".format(base_result))
 
     for other_impl in other_impls:
         print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
         other_result = run_impl(other_impl)
 
         percentage_improvement = round((other_result - base_result) / base_result * 100)
-        msg = "{} ({:+}%)".format(other_result, percentage_improvement);
+        msg = "{} cycles ({:+}%)".format(other_result, percentage_improvement);
 
         if other_result < base_result:
             printGreen(msg)
@@ -44,11 +44,24 @@ def time_bench(dir):
 def run_impl(impl):
     header = impl.replace(".c", "")
 
+    if "mpi" in impl:
+        compiler = "mpicc"
+    else:
+        compiler = "gcc"
+
+    flags = ["-O0"]
+    if "fma" in impl:
+        flags.append("-mfma")
+    if "openmp" in impl:
+        flags.append("-fopenmp")
+
+    joined_flags = " ".join(flags)
+
     # Compile implementation
-    os.system("gcc -O3 -mfma -fopenmp -I utilities -I {} utilities/polybench.c {} -DPOLYBENCH_TIME -o executable".format(header, impl))
+    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DPOLYBENCH_DUMP_ARRAYS -o executable")
     # Run and get output
     output = os.popen("./executable 2>&1").read()
-    time = float(output)
+    time = int(output)
     return time
 
 
