@@ -1,5 +1,5 @@
 import os
-
+import sys
 
 def main():
     time_benches("./linear-algebra/solvers/ludcmp")
@@ -66,7 +66,11 @@ def run_impl(impl, dataset_size = "MEDIUM_DATASET"):
     # Compile implementation
     os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -D{dataset_size} -DPOLYBENCH_TIME -DPOLYBENCH_CYCLE_ACCURATE_TIMER -o executable")
     # Run and get output
-    output = os.popen("./executable 2>&1").read()
+    if "mpi" in impl:
+        np = sys.argv[1]
+        output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
+    else:
+        output = os.popen("./executable 2>&1").read()
     time = int(output)
     return time
 
