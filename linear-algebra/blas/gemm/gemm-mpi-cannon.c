@@ -50,29 +50,36 @@ void init_array(int ni, int nj, int nk,
    Can be used also to check the correctness of the output. */
 static
 void print_array(int ni, int nj,
-		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj), int whichFile)
+		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj))
 {
   int i, j;
 
-  FILE *fileP;
-  if (whichFile == 0) {
-    fileP = fopen("/tmp/resultsParallel.txt","w");
-  } else if (whichFile == 1) {
-    fileP = fopen("/tmp/inputA.txt","w");
-  } else if (whichFile == 2) {
-    fileP = fopen("/tmp/inputB.txt","w");
-  }
-  
   for (i = 0; i < ni; i++)
     for (j = 0; j < nj; j++) {
-      if (j == 0) {
-        fprintf (fileP, "\n");
-      }
-	    fprintf (fileP, DATA_PRINTF_MODIFIER, C[i][j]);
-	    //if ((i * ni + j) % 20 == 0) fprintf (fileP, "\n");
+      fprintf (stderr, DATA_PRINTF_MODIFIER, C[i][j]);
+      if ((i * ni + j) % 20 == 0) fprintf (stderr, "\n");
     }
-  fprintf (fileP, "\n");
-  fclose(fileP);
+  fprintf (stderr, "\n");
+}
+
+int getI(int rank, int n) {
+  return rank % n;
+}
+
+int getJ(int rank, int n) {
+  return rank / n;
+}
+
+int getStart(int rank, double segmentLenght) {
+  return rank * segmentLenght;
+}
+
+int getEnd(int start, double segmentLenght, int isEven, int rank, int mpiSize) {
+  int end = start + segmentLenght - 1;
+  if (rank == mpiSize - 1 && isEven != 0) {
+    end += 1;
+  }
+  return end;
 }
 
 
@@ -90,48 +97,85 @@ void kernel_gemm(int ni, int nj, int nk,
 {
   int i, j, k;
 
-// assumes mpiSize == ni == nj
-#pragma scop
 
+  #pragma scop
 
-i = rank % ni;
-j = rank / ni;
-k = (i + j) % ni;
+  int resultSize;
+  double segmentLenght = (ni * ni) / (double)mpiSize;
 
-/* C := alpha*A*B + beta*C */
-
-double ijResult[3];
-ijResult[0] = i;
-ijResult[1] = j;
-ijResult[2] = C[i][j] * beta;
-
-double a, b, c;
-for (int iteration = 0; iteration < ni; iteration++) {
-
-    a = A[i][k];
-    b = B[k][j];
-    c = ijResult[2];
-    c += a * b * alpha;
-    ijResult[2] = c;
-    k = (k + 1) % ni;
-}
-
-if (rank != 0) {
-  MPI_Send(&ijResult, 3, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-}
-
-if (rank == 0) {
-  for (int worker = 1; worker < mpiSize; worker++) {
-    MPI_Recv(&ijResult, 3, MPI_DOUBLE, worker, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    int workerI = ijResult[0];
-    int workerJ = ijResult[1];
-    double result = ijResult[2];
-    
-    C[workerI][workerJ] = result;
+  // range
+  
+  int isEven;
+  if (segmentLenght == (int) segmentLenght) {
+    isEven = 0;
+  } else {
+    isEven = 1;
   }
-}
 
-#pragma endscop
+  int start = getStart(rank, segmentLenght);
+  int end = getEnd(start, segmentLenght, isEven, rank, mpiSize);
+
+  if (isEven != 0) {
+    resultSize = end - start + 2;
+  } else {
+    resultSize = end - start + 1;
+  }
+
+  
+
+  double ijResult[resultSize];
+
+
+  int resultIndex = -1;
+  for(int point = start; point <= end; ++point) {
+
+    ++resultIndex;
+    i = getI(point, ni);
+    j = getJ(point, ni);
+    k = (i + j) % ni;
+
+    /* C := alpha*A*B + beta*C */
+
+    ijResult[resultIndex] = C[i][j] * beta;
+    double a, b, c;
+    for (int iteration = 0; iteration < ni; iteration++) {
+
+        a = A[i][k];
+        b = B[k][j];
+        c = ijResult[resultIndex];
+        c += a * b * alpha;
+        ijResult[resultIndex] = c;
+        k = (k + 1) % ni;
+        if (rank == 0) {
+          C[i][j] = c;
+        }
+    }
+  }
+  if (rank != 0) {
+    MPI_Send(&ijResult, resultSize, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+  }
+
+  if (rank == 0) {
+    for (int worker = 1; worker < mpiSize; worker++) {
+      MPI_Recv(&ijResult, resultSize, MPI_DOUBLE, worker, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      
+      int start = getStart(worker, segmentLenght);
+      int end = getEnd(start, segmentLenght, isEven, worker, mpiSize);
+
+      int resultIndex = -1;
+      for(int point = start; point <= end; ++point) {
+        ++resultIndex;
+        int workerI = getI(point, ni);
+        int workerJ = getJ(point, ni);
+        double result = ijResult[resultIndex];
+        
+        C[workerI][workerJ] = result;  
+      }
+
+    }
+  }
+
+  #pragma endscop
 
 }
 
@@ -186,14 +230,14 @@ int main(int argc, char** argv) {
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
      
-  //polybench_prevent_dce(print_array(ni, nj,  POLYBENCH_ARRAY(C)));
+  
   
   if (rank == 0) {
     printf("benchmark finished \n");
     polybench_print_instruments;
-    print_array(ni, nj,  POLYBENCH_ARRAY(C), 0);
-    print_array(ni, nj,  POLYBENCH_ARRAY(A), 1);
-    print_array(ni, nj,  POLYBENCH_ARRAY(B), 2);
+    polybench_prevent_dce(print_array(ni, nj,  POLYBENCH_ARRAY(C)));
+    
+    
   }
   
   /* Be clean. */
