@@ -1,10 +1,14 @@
 /**
- * gemm.c: This file is part of the PolyBench/C 3.2 test suite.
+ * This version is stamped on May 10, 2016
  *
+ * Contact:
+ *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
+ *   Tomofumi Yuki <tomofumi.yuki.fr>
  *
- * Contact: Louis-Noel Pouchet <pouchet@cse.ohio-state.edu>
  * Web address: http://polybench.sourceforge.net
  */
+/* gemm.c: this file is part of PolyBench/C */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -12,10 +16,10 @@
 
 /* Include polybench common header. */
 #include <polybench.h>
+
 #include <mpi.h>
 
 /* Include benchmark-specific header. */
-/* Default data type is double, default size is 4000. */
 #include "gemm.h"
 
 
@@ -30,19 +34,17 @@ void init_array(int ni, int nj, int nk,
 {
   int i, j;
 
-  *alpha = 32412;
-  *beta = 2123;
-  //*alpha = 1;
-  //*beta = 1;
+  *alpha = 1.5;
+  *beta = 1.2;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nj; j++)
-      C[i][j] = ((DATA_TYPE) i*j) / ni;
+      C[i][j] = (DATA_TYPE) ((i*j+1) % ni) / ni;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nk; j++)
-      A[i][j] = ((DATA_TYPE) i*j) / ni;
+      A[i][j] = (DATA_TYPE) (i*(j+1) % nk) / nk;
   for (i = 0; i < nk; i++)
     for (j = 0; j < nj; j++)
-      B[i][j] = ((DATA_TYPE) i*j) / ni;
+      B[i][j] = (DATA_TYPE) (i*(j+2) % nj) / nj;
 }
 
 
@@ -54,13 +56,17 @@ void print_array(int ni, int nj,
 {
   int i, j;
 
+  POLYBENCH_DUMP_START;
+  POLYBENCH_DUMP_BEGIN("C");
   for (i = 0; i < ni; i++)
     for (j = 0; j < nj; j++) {
-      fprintf (stderr, DATA_PRINTF_MODIFIER, C[i][j]);
-      if ((i * ni + j) % 20 == 0) fprintf (stderr, "\n");
+	if ((i * ni + j) % 20 == 0) fprintf (POLYBENCH_DUMP_TARGET, "\n");
+	fprintf (POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, C[i][j]);
     }
-  fprintf (stderr, "\n");
+  POLYBENCH_DUMP_END("C");
+  POLYBENCH_DUMP_FINISH;
 }
+
 
 int getI(int rank, int n) {
   return rank % n;
@@ -82,7 +88,6 @@ int getEnd(int start, double segmentLenght, int isEven, int rank, int mpiSize) {
   return end;
 }
 
-
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
 static
@@ -91,17 +96,20 @@ void kernel_gemm(int ni, int nj, int nk,
 		 DATA_TYPE beta,
 		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
 		 DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
-		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj),
-     int mpiSize,
-     int rank)
+		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj), int rank, int mpiSize)
 {
   int i, j, k;
 
-
-  #pragma scop
-
-  int resultSize;
-  double segmentLenght = (ni * ni) / (double)mpiSize;
+//BLAS PARAMS
+//TRANSA = 'N'
+//TRANSB = 'N'
+// => Form C := alpha*A*B + beta*C,
+//A is NIxNK
+//B is NKxNJ
+//C is NIxNJ
+#pragma scop
+int resultSize;
+  double segmentLenght = (ni * nj) / (double)mpiSize;
 
   // range
   
@@ -131,8 +139,8 @@ void kernel_gemm(int ni, int nj, int nk,
 
     ++resultIndex;
     i = getI(point, ni);
-    j = getJ(point, ni);
-    k = (i + j) % ni;
+    j = getJ(point, nj);
+    k = (i + j) % nk;
 
     /* C := alpha*A*B + beta*C */
 
@@ -145,7 +153,7 @@ void kernel_gemm(int ni, int nj, int nk,
         c = ijResult[resultIndex];
         c += a * b * alpha;
         ijResult[resultIndex] = c;
-        k = (k + 1) % ni;
+        k = (k + 1) % nk;
         if (rank == 0) {
           C[i][j] = c;
         }
@@ -166,7 +174,7 @@ void kernel_gemm(int ni, int nj, int nk,
       for(int point = start; point <= end; ++point) {
         ++resultIndex;
         int workerI = getI(point, ni);
-        int workerJ = getJ(point, ni);
+        int workerJ = getJ(point, nj);
         double result = ijResult[resultIndex];
         
         C[workerI][workerJ] = result;  
@@ -174,22 +182,29 @@ void kernel_gemm(int ni, int nj, int nk,
 
     }
   }
-
-  #pragma endscop
+#pragma endscop
 
 }
 
 
-int main(int argc, char** argv) {
-    int rank, size;
+int main(int argc, char** argv)
+{
+
+int rank, size;
 
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    if (size > NI * NI) {
+      printf("Hola Hola! size must be <= N * N. was %d > %d  Exiting", size, NI * NI);
+      MPI_Finalize();
+  
+      return 1;
+    }
 
-    /* Retrieve problem size. */
+  /* Retrieve problem size. */
   int ni = NI;
   int nj = NJ;
   int nk = NK;
@@ -201,56 +216,44 @@ int main(int argc, char** argv) {
   POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NK,ni,nk);
   POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NK,NJ,nk,nj);
 
-  
-
   /* Initialize array(s). */
   init_array (ni, nj, nk, &alpha, &beta,
 	      POLYBENCH_ARRAY(C),
 	      POLYBENCH_ARRAY(A),
 	      POLYBENCH_ARRAY(B));
 
-    /* Start timer. */
+  /* Start timer. */
   polybench_start_instruments;
-
-  
 
   /* Run kernel. */
   kernel_gemm (ni, nj, nk,
 	       alpha, beta,
 	       POLYBENCH_ARRAY(C),
 	       POLYBENCH_ARRAY(A),
-	       POLYBENCH_ARRAY(B), size, rank);
+	       POLYBENCH_ARRAY(B),
+         rank, size);
 
-
-  
   /* Stop and print timer. */
   polybench_stop_instruments;
   
 
   /* Prevent dead-code elimination. All live-out data must be printed
      by the function call in argument. */
-     
-  
-  
+
   if (rank == 0) {
-    printf("benchmark finished \n");
     polybench_print_instruments;
     polybench_prevent_dce(print_array(ni, nj,  POLYBENCH_ARRAY(C)));
+    //print_array(ni, nj,  POLYBENCH_ARRAY(C));
     
     
   }
   
+
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(C);
   POLYBENCH_FREE_ARRAY(A);
   POLYBENCH_FREE_ARRAY(B);
 
-
-
-
-    MPI_Finalize();
-    return 0;
-
-
-
+  MPI_Finalize();
+  return 0;
 }
