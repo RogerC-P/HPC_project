@@ -76,7 +76,8 @@ def same_arrays(arr1, arr2):
         return False
 
     for x1, x2 in zip(arr1, arr2):
-        if abs(x1 - x2) > 0.000000001:
+        if abs(x1 - x2) > 0.011:
+            print("Number x1: {}, Number x2: {}, Diff {}".format(x1, x2, abs(x1 - x2)))
             return False
 
     return True
