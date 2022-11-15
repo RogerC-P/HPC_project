@@ -1,7 +1,9 @@
-CC=gcc
+CC=mpicc
 
-override CFLAGS += -std=c99 -O3 -march=native -g -fopenmp
-# override CFLAGS += -g -march=native #-fsanitize=address
+override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
+									 -DPOLYBENCH_TIME -DN_RUNS=10
+
+# override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS
 
 SHARED = $(wildcard shared/*)
 GEMM = $(wildcard linear-algebra/blas/gemm/*)
@@ -33,11 +35,23 @@ N = 1
 M = 1
 T = 1
 
-cmd = mpirun -n $(M) --map-by node:PE=$(T) $(benchmark)
+CPU = EPYC_7763
 
-run: $(benchmark)
-	export OMP_NUM_THREADS=$(T)
-	sbatch --output="$(benchmark)-$(N)-$(M)-$(T)" --open-mode=truncate --ntasks=$(N) --ntasks-per-node=$(T) --wrap="unset LSB_AFFINITY_HOSTFILE; $(cmd)"
+openmp_job: $(benchmark)
+	mkdir -p results
+	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(T)" --open-mode=truncate \
+				--ntasks=1 --cpus-per-task=$(T) \
+				--constraint=$(CPU) --time=1:00 \
+				--wrap="./$(benchmark)"
+
+mpi_cmd = mpirun -n $(M) --map-by node:PE=$(T) $(benchmark)
+
+mpi_job: $(benchmark)
+	mkdir -p results
+	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(N)-$(M)-$(T)" --open-mode=truncate \
+				--ntasks=$(N) --ntasks-per-node=$(T) \
+				--constraint=$(CPU) \
+				--wrap="unset LSB_AFFINITY_HOSTFILE; $(mpi_cmd)"
 
 clean:
-	rm -f *.o lu ludcmp
+	rm -f *.o gemm lu ludcmp

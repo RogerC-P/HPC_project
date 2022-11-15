@@ -37,7 +37,7 @@ void lu(int n, double *A)
   int psizes[2] = {0, 0};
   MPI_Dims_create(world_size, 2, psizes);
 
-  int block_size = 200;
+  int block_size = 80;
   while (n % (psizes[0] * block_size) != 0) block_size -= 1;
 
   MPI_Datatype *dist_types = (MPI_Datatype *) malloc(world_size * sizeof(MPI_Datatype));
@@ -114,6 +114,10 @@ void lu(int n, double *A)
 
   int n_blocks = n / block_size;
 
+  double *q = (double *) malloc(block_size * sizeof(double));
+
+  int a, b, c, d;
+
   #pragma omp parallel
   for (int bk = 0; bk < n_blocks; bk++) {
     int block_idx = bk % psizes[0];
@@ -184,8 +188,9 @@ void lu(int n, double *A)
         if (col_rank == block_idx) {
           for (int k = co_k; k < co_k + block_size; k++) {
             for (int i = k + 1; i < co_k + block_size; i++) {
+              double LUik = LU_k[(i - co_k) * block_size + (k - co_k)];
               for (int j = ro_n; j < m; j++) {
-                B[i * m + j] -= LU_k[(i - co_k) * block_size + (k - co_k)] * B[k * m + j];
+                B[i * m + j] -= LUik * B[k * m + j];
               }
             }
           }
@@ -198,26 +203,20 @@ void lu(int n, double *A)
         }
 
         if (row_rank == block_idx) {
-          // for (int k = ro_k; k < ro_k + block_size; k++) {
-          //   for (int i = co_n; i < m; i++)
-          //     B[i * m + k] /= LU_k[(k - ro_k) * block_size + (k - ro_k)];
+          const int bi = 40;
 
-          //   for (int i = co_n; i < m; i++) {
-          //     for (int j = k + 1; j < ro_k + block_size; j++) {
-          //       B[i * m + j] -= B[i * m + k] * LU_k[(k - ro_k) * block_size + (j - ro_k)];
-          //     }
-          //   }
-          // }
-
-          int bi = 20;
+          for (int k = ro_k; k < ro_k + block_size; k++)
+            q[k - ro_k] = 1 / LU_k[(k - ro_k) * block_size + (k - ro_k)];
 
           int i;
           for (i = co_n; i < m - bi + 1; i += bi) {
             for (int k = ro_k; k < ro_k + block_size; k++) {
               for (int u = i; u < i + bi; u++) {
-                B[u * m + k] /= LU_k[(k - ro_k) * block_size + (k - ro_k)];
+                B[u * m + k] *= q[k - ro_k];
+
+                double Buk = B[u * m + k];
                 for (int j = k + 1; j < ro_k + block_size; j++) {
-                  B[u * m + j] -= B[u * m + k] * LU_k[(k - ro_k) * block_size + (j - ro_k)];
+                  B[u * m + j] -= Buk * LU_k[(k - ro_k) * block_size + (j - ro_k)];
                 }
               }
             }
@@ -225,9 +224,11 @@ void lu(int n, double *A)
 
           for (int k = ro_k; k < ro_k + block_size; k++) {
             for (int u = i;u < m; u++) {
-              B[u * m + k] /= LU_k[(k - ro_k) * block_size + (k - ro_k)];
+              B[u * m + k] *= q[k - ro_k];
+
+              double Buk = B[u * m + k];
               for (int j = k + 1; j < ro_k + block_size; j++) {
-                B[u * m + j] -= B[u * m + k] * LU_k[(k - ro_k) * block_size + (j - ro_k)];
+                B[u * m + j] -= Buk * LU_k[(k - ro_k) * block_size + (j - ro_k)];
               }
             }
           }
@@ -266,6 +267,8 @@ void lu(int n, double *A)
       swap(&U_k, &U_p);
     }
   }
+
+  free(q);
 
   MPI_Request *recv_requests;
   if (rank == 0) {

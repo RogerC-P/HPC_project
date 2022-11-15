@@ -78,7 +78,7 @@ void kernel_gemm(int ni, int nj, int nk,
 		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
 {
 #pragma scop
-  pgemm(ni, nj, nk, alpha, &A[0][0], nk, &B[0][0], nj, beta, &C[0][0], nj);
+  gemm(ni, nj, nk, alpha, &A[0][0], nk, &B[0][0], nj, beta, &C[0][0], nj);
 #pragma endscop
 }
 
@@ -112,7 +112,6 @@ void kernel_gemm_original(int ni, int nj, int nk,
 
 }
 
-#ifndef REUSE_GEMM_KERNEL
 int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
@@ -164,4 +163,3 @@ int main(int argc, char** argv)
 
   return 0;
 }
-#endif

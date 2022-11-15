@@ -93,7 +93,6 @@ void kernel_lu_original(int n,
 #pragma endscop
 }
 
-#ifndef REUSE_LU_KERNEL
 int main(int argc, char** argv)
 {
   MPI_Init(NULL, NULL);
@@ -144,4 +143,3 @@ int main(int argc, char** argv)
 
   return 0;
 }
-#endif
