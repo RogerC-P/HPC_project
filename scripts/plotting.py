@@ -50,13 +50,13 @@ def plotResults(results, dataset_sizes, imp_names, path, logScale):
         plt.yscale('linear')
 
     x_padding = 0.1
-    plt.xlim([0-x_padding, len(dataset_sizes)-1+x_padding])
+    plt.xlim([min(dataset_sizes), max(dataset_sizes)])
     plt.xticks(ticks=dataset_sizes)
 
     #plt.ylim([0, 3.0])
     plt.title(os.path.basename(path), fontsize=14)
-    plt.ylabel('Dataset Size', fontsize=12)
-    plt.xlabel('Cycles', fontsize=12)
+    plt.xlabel('Dataset Size', fontsize=12)
+    plt.ylabel('Cycles', fontsize=12)
     plt.grid(True, color='lightgray', linestyle='--', linewidth=1)
     plt.legend()
     path = os.path.join(path, "plotting", "Solvers{}.png".format('_log' if logScale else '_linear'))
@@ -96,8 +96,9 @@ def runPlotter(dir, dataset_sizes, runs):
             pass """
 
 if __name__ == "__main__":
-    path = "./linear-algebra/solvers/ludcmp"
+    path_gemm = "./linear-algebra/blas/gemm"
+    path_ludcmp = "./linear-algebra/solvers/ludcmp"
 
     dataset_sizes = [2**i for i in range(6, 11)]
 
-    runPlotter(path, dataset_sizes, runs=3)
+    runPlotter(path_gemm, dataset_sizes, runs=3)
