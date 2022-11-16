@@ -1,5 +1,7 @@
 import os
 
+from helper import get_files
+
 
 def main():
     check_benches("./linear-algebra/solvers/ludcmp")
@@ -11,21 +13,15 @@ def check_benches(*dirs):
 
 
 def check_bench(dir):
-    dir = os.path.normpath(dir)
-    bench_name = os.path.basename(dir);
+    files = get_files(dir)
+    base = files["base"]
+    optimized = files["opt"]
 
-    print("Checking outputs of bench '{}'".format(bench_name))
-
-    # Assume base benchmark has same name as containing directory
-    base_name = bench_name + ".c"
-    base_impl = dir + "/" + base_name
-    other_impls = map(lambda name: dir + "/" + name, filter(lambda name: name.endswith(".c") and name != base_name, os.listdir(dir)))
-
-    print("{}".format(os.path.basename(base_impl)), end =" ... ", flush=True)
-    base_result = run_impl(base_impl)
+    print("{}".format(os.path.basename(base)), end =" ... ", flush=True)
+    base_result = run_impl(base)
     print("Done!")
 
-    for other_impl in other_impls:
+    for other_impl in optimized:
         print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
         other_result = run_impl(other_impl)
 
