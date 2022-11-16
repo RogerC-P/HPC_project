@@ -107,7 +107,7 @@ void kernel_ludcmp(int n,
 
 #pragma scop
   // Reuse lu kernel here
-  kernel_lu(n, A);
+  lu(n, &A[0][0]);
 
   if (rank == 0) {
     for (i = 0; i < _PB_N; i++) {
@@ -203,26 +203,30 @@ int main(int argc, char** argv)
 	      POLYBENCH_ARRAY(x),
 	      POLYBENCH_ARRAY(y));
 
-  if (rank == 0) {
-    /* Start timer. */
-    polybench_start_instruments;
-  }
+  for (int i = 0; i < N_RUNS; i++) {
+    MPI_Barrier(MPI_COMM_WORLD);
 
-  /* Run kernel. */
-  KERNEL_FUNC (n,
-		 POLYBENCH_ARRAY(A),
-		 POLYBENCH_ARRAY(b),
-		 POLYBENCH_ARRAY(x),
-		 POLYBENCH_ARRAY(y));
+    if (rank == 0) {
+      /* Start timer. */
+      polybench_start_instruments;
+    }
 
-  if (rank == 0) {
-    /* Stop and print timer. */
-    polybench_stop_instruments;
-    polybench_print_instruments;
+    /* Run kernel. */
+    kernel_ludcmp_original (n,
+       POLYBENCH_ARRAY(A),
+       POLYBENCH_ARRAY(b),
+       POLYBENCH_ARRAY(x),
+       POLYBENCH_ARRAY(y));
 
-    /* Prevent dead-code elimination. All live-out data must be printed
-       by the function call in argument. */
-    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+    if (rank == 0) {
+      /* Stop and print timer. */
+      polybench_stop_instruments;
+      polybench_print_instruments;
+
+      /* Prevent dead-code elimination. All live-out data must be printed
+         by the function call in argument. */
+      polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+    }
   }
 
   /* Be clean. */

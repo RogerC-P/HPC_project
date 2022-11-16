@@ -79,7 +79,11 @@
   _mm256_storeu_pd(&C[(u + 3) * ldc + v + 4], c13); \
 } while (0);
 
+#ifdef PARALLEL_GEMM
+void pgemm
+#else
 void gemm
+#endif
     (int m, int n, int k,
 		 double alpha, double *A, int lda,
      double *B, int ldb,
@@ -87,7 +91,12 @@ void gemm
 {
   __m256d valpha = _mm256_set1_pd(alpha);
 
+#ifdef PARALLEL_GEMM
+  #pragma omp for schedule(static, 4)
+#endif
   for (int i = 0; i < m - BI + 1; i += BI) {
+    if (i < 0) continue;
+
     int j;
     for (j = 0; j < n - BJ + 1; j += BJ) {
       for (int u = i; u < i + BI; u++) {
@@ -125,12 +134,23 @@ void gemm
     }
   }
 
-  int i = BI * (m / BI);
-  for (; i < m; i++) {
-    for (int j = 0; j < n; j++) {
-      C[i * ldc + j] *= beta;
-      for (int l = 0; l < k; l++) {
-        C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
+#ifdef PARALLEL_GEMM
+  #pragma omp master
+  {
+    #pragma omp task
+    {
+#else
+  {
+    {
+#endif
+      int i = BI * (m / BI);
+      for (; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+          C[i * ldc + j] *= beta;
+          for (int l = 0; l < k; l++) {
+            C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
+          }
+        }
       }
     }
   }

@@ -122,7 +122,7 @@ int main(int argc, char** argv)
     }
 
     /* Run kernel. */
-    kernel_lu_original (n, POLYBENCH_ARRAY(A));
+    kernel_lu (n, POLYBENCH_ARRAY(A));
 
     if (rank == 0) {
       /* Stop and print timer. */
