@@ -49,7 +49,6 @@ def plotResults(results, dataset_sizes, imp_names, path, logScale):
     else:
         plt.yscale('linear')
 
-    x_padding = 0.1
     plt.xlim([min(dataset_sizes), max(dataset_sizes)])
     plt.xticks(ticks=dataset_sizes)
 
@@ -66,8 +65,9 @@ def runPlotter(dir, dataset_sizes, runs):
     DRAW_PLOT = False
 
     if DRAW_PLOT:
-        results, flags, implementations = loadResults()
-        plotResults(results, flags, implementations, dir)
+        results, dataset_sizes, implementations = loadResults(dir)
+        plotResults(results, dataset_sizes, implementations, dir, True)
+        plotResults(results, dataset_sizes, implementations, dir, False)
     else:
 
         files = get_files(dir)
@@ -99,6 +99,6 @@ if __name__ == "__main__":
     path_gemm = "./linear-algebra/blas/gemm"
     path_ludcmp = "./linear-algebra/solvers/ludcmp"
 
-    dataset_sizes = [2**i for i in range(6, 11)]
+    dataset_sizes = [2**i for i in range(6, 7)]
 
-    runPlotter(path_gemm, dataset_sizes, runs=3)
+    runPlotter(path_ludcmp, dataset_sizes, runs=3)
