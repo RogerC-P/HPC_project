@@ -62,7 +62,7 @@ def plotResults(results, dataset_sizes, imp_names, path, logScale):
     plt.savefig(path)
 
 def runPlotter(dir, dataset_sizes, runs):
-    DRAW_PLOT = False
+    DRAW_PLOT = True
 
     if DRAW_PLOT:
         results, dataset_sizes, implementations = loadResults(dir)
@@ -99,6 +99,6 @@ if __name__ == "__main__":
     path_gemm = "./linear-algebra/blas/gemm"
     path_ludcmp = "./linear-algebra/solvers/ludcmp"
 
-    dataset_sizes = [2**i for i in range(6, 7)]
+    dataset_sizes = [2**i for i in range(8, 12)]
 
     runPlotter(path_ludcmp, dataset_sizes, runs=2)
