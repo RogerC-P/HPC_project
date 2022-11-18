@@ -3,7 +3,7 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from timeImpls import run_impl
+from timeImpls import printGreen, printOrange, printRed, run_impl
 
 from helper import get_files
 
@@ -61,6 +61,35 @@ def plotResults(results, dataset_sizes, imp_names, path, logScale):
     path = os.path.join(path, "plotting", "Solvers{}.png".format('_log' if logScale else '_linear'))
     plt.savefig(path)
 
+def printSpeedup(results, dataset_sizes, imp_names):
+    results = [result[-1] for result in results]
+    N = dataset_sizes[-1]
+
+    base_name = min(imp_names, key=len)
+    base_result = max(results)
+    base_index = imp_names.index(base_name)
+
+    if base_index != results.index(base_result):
+        printOrange('Expecting base to be {}'.format(base_name))
+
+    print('\n'+'-'*15,'Speed up for datasize {}:'.format(N), '-'*15)
+
+    for i, result in enumerate(results):
+        if i == base_index:
+            continue
+
+        percentage_improvement = round((result - base_result) / base_result * 100)
+        msg = "{}: {} cycles ({:+}%)".format(os.path.basename(imp_names[i]), round(result), percentage_improvement)
+
+        if result < base_result:
+            printGreen(msg)
+        elif result > base_result:
+            printRed(msg)
+        else:
+            print(msg)
+
+
+
 def runPlotter(dir, dataset_sizes, runs):
     DRAW_PLOT = True
 
@@ -68,6 +97,7 @@ def runPlotter(dir, dataset_sizes, runs):
         results, dataset_sizes, implementations = loadResults(dir)
         plotResults(results, dataset_sizes, implementations, dir, True)
         plotResults(results, dataset_sizes, implementations, dir, False)
+        printSpeedup(results, dataset_sizes, implementations)
     else:
 
         files = get_files(dir)
@@ -88,6 +118,7 @@ def runPlotter(dir, dataset_sizes, runs):
 
         plotResults(results, dataset_sizes, implementations, dir, True)
         plotResults(results, dataset_sizes, implementations, dir, False)
+        printSpeedup(results, dataset_sizes, implementations)
         
         """     
         try:
