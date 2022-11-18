@@ -101,4 +101,4 @@ if __name__ == "__main__":
 
     dataset_sizes = [2**i for i in range(6, 7)]
 
-    runPlotter(path_ludcmp, dataset_sizes, runs=3)
+    runPlotter(path_ludcmp, dataset_sizes, runs=2)
