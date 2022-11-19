@@ -92,7 +92,7 @@ void gemm
   __m256d valpha = _mm256_set1_pd(alpha);
 
 #ifdef PARALLEL_GEMM
-  #pragma omp for schedule(static, 1)
+  #pragma omp for
 #endif
   for (int i = 0; i < m - BI + 1; i += BI) {
     int j;

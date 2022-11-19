@@ -95,12 +95,7 @@ void kernel_lu_original(int n,
 
 int main(int argc, char** argv)
 {
-  int provided;
-  MPI_Init_thread(NULL, NULL, MPI_THREAD_SERIALIZED, &provided);
-  if (provided != MPI_THREAD_SERIALIZED) {
-    printf("Multiple threads not supported :(\n");
-    return 1;
-  }
+  MPI_Init(NULL, NULL);
 
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);

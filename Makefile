@@ -1,7 +1,10 @@
 CC=mpicc
 
-override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O1 -g -march=native -fopenmp \
+override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
 									 -DPOLYBENCH_TIME -DN_RUNS=20
+
+# override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O1 -g -march=native -fopenmp \
+# 									 -DPOLYBENCH_TIME -DN_RUNS=1000
 
 # override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -fopenmp -DNUM_THREADS=$(T)
 
