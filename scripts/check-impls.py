@@ -1,5 +1,5 @@
 import os
-
+import sys
 
 def main():
     check_benches("./linear-algebra/blas/gemm", "./linear-algebra/solvers/ludcmp")
@@ -42,7 +42,11 @@ def run_impl(impl):
     # Compile implementation
     os.system("gcc -O0 -mfma -fopenmp -I utilities -I {} utilities/polybench.c {} -DPOLYBENCH_DUMP_ARRAYS -o executable".format(header, impl))
     # Run and get output
-    output = os.popen("./executable 2>&1").read()
+    if "mpi" in impl:
+        np = sys.argv[1]
+        output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
+    else:
+        output = os.popen("./executable 2>&1").read()
     digits = [float(x) for x in output.split() if isfloat(x)]
     return digits
 
@@ -60,7 +64,8 @@ def same_arrays(arr1, arr2):
         return False
 
     for x1, x2 in zip(arr1, arr2):
-        if abs(x1 - x2) > 0.000000001:
+        if abs(x1 - x2) > 0.011:
+            print("Number x1: {}, Number x2: {}, Diff {}".format(x1, x2, abs(x1 - x2)))
             return False
 
     return True
