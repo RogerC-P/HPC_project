@@ -1,5 +1,5 @@
 import os
-
+import sys
 
 def main():
     time_benches("./linear-algebra/blas/gemm", "./linear-algebra/solvers/ludcmp")
@@ -47,8 +47,13 @@ def run_impl(impl):
     # Compile implementation
     os.system("gcc -O3 -mfma -fopenmp -I utilities -I {} utilities/polybench.c {} -DPOLYBENCH_TIME -o executable".format(header, impl))
     # Run and get output
-    output = os.popen("./executable 2>&1").read()
-    time = float(output)
+    if "mpi" in impl:
+        np = sys.argv[1]
+        output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
+    else:
+        output = os.popen("./executable 2>&1").read()
+    print(output)
+    time = int(output)
     return time
 
 
