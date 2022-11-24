@@ -54,7 +54,7 @@ def plotResults(results, dataset_sizes, imp_names, path, logScale):
 
     #plt.ylim([0, 3.0])
     plt.title(os.path.basename(path), fontsize=14)
-    plt.xlabel('Dataset Size', fontsize=12)
+    plt.xlabel('Matrix Dimension (N x N)', fontsize=12)
     plt.ylabel('Cycles', fontsize=12)
     plt.grid(True, color='lightgray', linestyle='--', linewidth=1)
     plt.legend()

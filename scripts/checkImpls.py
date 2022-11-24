@@ -1,7 +1,6 @@
 import os
-
 from helper import get_files
-
+import sys
 
 def main():
     check_benches("./linear-algebra/solvers/ludcmp")
@@ -54,7 +53,11 @@ def run_impl(impl):
     # Compile implementation
     os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DPOLYBENCH_DUMP_ARRAYS -o executable")
     # Run and get output
-    output = os.popen("./executable 2>&1").read()
+    if "mpi" in impl:
+        np = sys.argv[1]
+        output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
+    else:
+        output = os.popen("./executable 2>&1").read()
     digits = [float(x) for x in output.split() if isfloat(x)]
     return digits
 
