@@ -78,8 +78,8 @@ def printSpeedup(results, dataset_sizes, imp_names):
         if i == base_index:
             continue
 
-        percentage_improvement = round((result - base_result) / base_result * 100)
-        msg = "{}: {} cycles ({:+}%)".format(os.path.basename(imp_names[i]), round(result), percentage_improvement)
+        speedup = round(base_result / result)
+        msg = "{}: {} cycles (Speedup: {:})".format(os.path.basename(imp_names[i]), round(result, 2), speedup)
 
         if result < base_result:
             printGreen(msg)
