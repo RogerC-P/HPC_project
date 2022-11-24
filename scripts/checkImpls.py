@@ -3,7 +3,7 @@ from helper import get_files
 import sys
 
 def main():
-    check_benches("./linear-algebra/solvers/ludcmp")
+    check_benches("./linear-algebra/blas/gemm")
 
 
 def check_benches(*dirs):
@@ -54,10 +54,16 @@ def run_impl(impl):
     os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DPOLYBENCH_DUMP_ARRAYS -o executable")
     # Run and get output
     if "mpi" in impl:
-        np = sys.argv[1]
+        np = 2#sys.argv[1]
         output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
     else:
         output = os.popen("./executable 2>&1").read()
+
+    if "Segmentation fault" in output:
+        printRed("Segmentation fault!")
+        printRed("-"*30)
+        print(output)
+        printRed("-"*30)
     digits = [float(x) for x in output.split() if isfloat(x)]
     return digits
 
@@ -71,7 +77,9 @@ def isfloat(num):
 
 
 def same_arrays(arr1, arr2):
+
     if len(arr1) != len(arr2):
+        printRed("Array Length missmatch: " + str(len(arr1)) + " vs " + str(len(arr2)))
         return False
 
     for x1, x2 in zip(arr1, arr2):
