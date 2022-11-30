@@ -4,7 +4,7 @@ import sys
 from helper import get_files
 
 def main():
-    dataset_sizes = [2**i for i in range(6, 12)]
+    #dataset_sizes = [2**i for i in range(6, 12)]
     dataset_sizes = [2048]
 
     time_benches(dataset_sizes, "./linear-algebra/solvers/ludcmp")
@@ -15,7 +15,7 @@ def time_benches(dataset_sizes, *dirs):
         time_bench(dataset_sizes, dir)
 
 
-def time_bench(dir, dataset_sizes = ["MEDIUM_DATASET"]):
+def time_bench(dataset_sizes, dir):
 
     files = get_files(dir)
     base = files["base"]
@@ -44,7 +44,7 @@ def time_bench(dir, dataset_sizes = ["MEDIUM_DATASET"]):
 
 
 
-def run_impl(impl, dataset_size = 2048, runs = 1):
+def run_impl(impl, dataset_size, runs = 5):
     header = impl.replace(".c", "")
 
     if "mpi" in impl:
@@ -61,7 +61,7 @@ def run_impl(impl, dataset_size = 2048, runs = 1):
     joined_flags = " ".join(flags)
 
     # Compile implementation
-    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -DPOLYBENCH_CYCLE_ACCURATE_TIMER -o executable")
+    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -o executable")
     
     total = 0
     # Run and get output
@@ -75,7 +75,7 @@ def run_impl(impl, dataset_size = 2048, runs = 1):
             output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
         else:
             output = os.popen("./executable 2>&1").read()
-        total += int(output)
+        total += float(output)
     return total / runs
 
 

@@ -101,15 +101,33 @@ void invert_unity_lower_triangular_matrix(int d, DATA_TYPE L[d][d]) {
 
     for (int i = 1; i < d; i++) {
         for (int j = 0; j < i; j++) {
-            DATA_TYPE sum = 0.0;
-            for (int k = j; k < i; k++) {
-                sum += L[i][k] * b[k][j];
+            DATA_TYPE sum1 = 0.0;
+            DATA_TYPE sum2 = 0.0;
+            DATA_TYPE sum3 = 0.0;
+            DATA_TYPE sum4 = 0.0;
+
+            int k = j;
+            for (; k+4 <= i; k+=4) {
+                sum1 += L[i][k+0] * b[k+0][j];
+                sum2 += L[i][k+1] * b[k+1][j];
+                sum3 += L[i][k+2] * b[k+2][j];
+                sum4 += L[i][k+3] * b[k+3][j];
+
+                #ifdef COUNT_FLOPS
+                FLOP_COUNTER += 8; 
+                #endif
+            }
+            for (; k < i; k++) {
+                sum1 += L[i][k] * b[k][j];
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 2; 
                 #endif
             }
-            b[i][j] = -sum;
+            sum1 += sum2;
+            sum3 += sum4;
+            sum1 += sum3;
+            b[i][j] = -sum1;
         }
     }
 
@@ -128,15 +146,32 @@ void invert_upper_triangular_matrix(int d, DATA_TYPE U[d][d]) {
         #endif
 
         for (int j = d-1; j >= i + 1; j--) {
-            DATA_TYPE sum = 0.0;
-            for (int k = i+1; k <= j; k++) {
-                sum += U[i][k] * c[k][j];
+            DATA_TYPE sum1 = 0.0;
+            DATA_TYPE sum2 = 0.0;
+            DATA_TYPE sum3 = 0.0;
+            DATA_TYPE sum4 = 0.0;
+            int k = i+1;
+            for (; k+4 <= j; k+=4) {
+                sum1 += U[i][k] * c[k][j];
+                sum2 += U[i][k+1] * c[k+1][j];
+                sum3 += U[i][k+2] * c[k+2][j];
+                sum4 += U[i][k+3] * c[k+3][j];
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 2; 
                 #endif
             }
-            c[i][j] = -sum / U[i][i];
+            for (; k <= j; k++) {
+                sum1 += U[i][k] * c[k][j];
+ 
+                #ifdef COUNT_FLOPS
+                FLOP_COUNTER += 2; 
+                #endif
+            }
+            sum1 += sum2;
+            sum3 += sum4;
+            sum1 += sum3;
+            c[i][j] = -sum1 / U[i][i];
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 1; 
