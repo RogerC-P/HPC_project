@@ -641,7 +641,6 @@ int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
-  omp_set_num_threads(8);
 
   /* Variable declaration/allocation. */
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
