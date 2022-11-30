@@ -1,0 +1,8 @@
+[package]
+name = "ludcmp-blas"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ndarray = "0.14"
+ndarray-linalg = { version = "0.13", features = ["openblas-static"] }
