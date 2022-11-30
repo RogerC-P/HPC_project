@@ -93,7 +93,7 @@ DATA_TYPE min(DATA_TYPE x, DATA_TYPE y) {
 }
 
 
-void invert_unity_lower_triangular_matrix_opt_avx_b16(int d, DATA_TYPE L[d][d]) {
+void invert_unity_lower_triangular_matrix(int d, DATA_TYPE L[d][d]) {
     DATA_TYPE b[d][d];
     memset(b, 0, sizeof(b));
 
@@ -108,19 +108,18 @@ void invert_unity_lower_triangular_matrix_opt_avx_b16(int d, DATA_TYPE L[d][d]) 
             DATA_TYPE sum3 = 0.0;
             DATA_TYPE sum4 = 0.0;
 
-            int krest = j;
-            for (int k = krest; k+4 <= i; k+=4) {
+            int k = j;
+            for (; k+4 <= i; k+=4) {
                 sum1 += L[i][k+0] * b[k+0][j];
                 sum2 += L[i][k+1] * b[k+1][j];
                 sum3 += L[i][k+2] * b[k+2][j];
                 sum4 += L[i][k+3] * b[k+3][j];
-                krest = k + 4;
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int k = krest; k < i; k++) {
+            for (; k < i; k++) {
                 sum1 += L[i][k] * b[k][j];
 
                 #ifdef COUNT_FLOPS
@@ -137,7 +136,7 @@ void invert_unity_lower_triangular_matrix_opt_avx_b16(int d, DATA_TYPE L[d][d]) 
     memcpy(L, b, sizeof(b));
 }
 
-void invert_upper_triangular_matrix_opt_avx_b16(int d, DATA_TYPE U[d][d]) {
+void invert_upper_triangular_matrix(int d, DATA_TYPE U[d][d]) {
     DATA_TYPE c[d][d];
     memset(c, 0, sizeof(c));
 
@@ -149,15 +148,32 @@ void invert_upper_triangular_matrix_opt_avx_b16(int d, DATA_TYPE U[d][d]) {
         #endif
 
         for (int j = d-1; j >= i + 1; j--) {
-            DATA_TYPE sum = 0.0;
-            for (int k = i+1; k <= j; k++) {
-                sum += U[i][k] * c[k][j];
+            DATA_TYPE sum1 = 0.0;
+            DATA_TYPE sum2 = 0.0;
+            DATA_TYPE sum3 = 0.0;
+            DATA_TYPE sum4 = 0.0;
+            int k = i+1;
+            for (; k+4 <= j; k+=4) {
+                sum1 += U[i][k] * c[k][j];
+                sum2 += U[i][k+1] * c[k+1][j];
+                sum3 += U[i][k+2] * c[k+2][j];
+                sum4 += U[i][k+3] * c[k+3][j];
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 2; 
                 #endif
             }
-            c[i][j] = -sum / U[i][i];
+            for (; k <= j; k++) {
+                sum1 += U[i][k] * c[k][j];
+ 
+                #ifdef COUNT_FLOPS
+                FLOP_COUNTER += 2; 
+                #endif
+            }
+            sum1 += sum2;
+            sum3 += sum4;
+            sum1 += sum3;
+            c[i][j] = -sum1 / U[i][i];
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 1; 
@@ -292,8 +308,8 @@ void block_lu_factorization_recursive_opt_avx_b16(
     }
 
     // Compute the inverse in-place.
-    invert_unity_lower_triangular_matrix_opt_avx_b16(s, l);
-    invert_upper_triangular_matrix_opt_avx_b16(s, u);
+    invert_unity_lower_triangular_matrix(s, l);
+    invert_upper_triangular_matrix(s, u);
 
     
     // Step 2: Compute U_12 = L_11^(-1) A_12
@@ -625,6 +641,7 @@ int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
   int n = N;
+  omp_set_num_threads(8);
 
   /* Variable declaration/allocation. */
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);

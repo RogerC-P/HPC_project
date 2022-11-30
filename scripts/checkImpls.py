@@ -3,7 +3,7 @@ from helper import get_files
 import sys
 
 def main():
-    check_benches("./linear-algebra/blas/gemm")
+    check_benches("./linear-algebra/solvers/ludcmp")
 
 
 def check_benches(*dirs):
@@ -42,7 +42,7 @@ def run_impl(impl):
     else:
         compiler = "gcc"
 
-    flags = ["-O0"]
+    flags = ["-O3"]
     if "fma" in impl:
         flags.append("-mfma")
     if "openmp" in impl:
