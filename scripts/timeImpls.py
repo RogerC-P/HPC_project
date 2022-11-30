@@ -26,7 +26,7 @@ def time_bench(dataset_sizes, dir):
 
         print("{}".format(os.path.basename(base)), end =" ... ", flush=True)
         base_result = run_impl(base, dataset_size)
-        print("{} cycles".format(base_result))
+        print("{} seconds".format(base_result))
 
         for other_impl in optimizations:
             print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)

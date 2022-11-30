@@ -36,28 +36,52 @@ def loadResults(load_dir):
         
 
 def plotResults(results, dataset_sizes, imp_names, path, logScale):
-    
-    plt.figure(figsize=(16, 6))
 
     imp_names = list(map(lambda x: os.path.basename(x), imp_names))
 
-    for i, result in enumerate(results):
-        plt.plot(dataset_sizes, result, label=imp_names[i])
+    BAR_CHART = True
+    if BAR_CHART:
+        if logScale:
+            return 
 
-    if logScale:
-        plt.yscale('log')
+        imp_names = list(map(lambda x: x.split('-')[-1].split('.')[0], imp_names))
+        zipped = list(zip(imp_names, list(map(lambda l: l[-1], results))))
+        zipped = sorted(zipped, key=lambda tup:int(tup[0]))
+        imp_names, results = zip(*zipped)
+        plt.bar(imp_names, results)
+
+        plt.title(f"Runtime of ludcmp-blocking depending on block size for N={dataset_sizes[-1]}", fontsize=14)
+        plt.xlabel('Block size', fontsize=12)
+        plt.ylabel('Time [s]', fontsize=12)
+        #plt.grid(True, color='lightgray', linestyle='--', linewidth=1)
     else:
-        plt.yscale('linear')
+        plt.figure(figsize=(16, 6))
+        for i, result in enumerate(results):
+            plt.plot(dataset_sizes, result, label=imp_names[i])
 
-    plt.xlim([min(dataset_sizes), max(dataset_sizes)])
-    plt.xticks(ticks=dataset_sizes)
+        if logScale:
+            plt.yscale('log')
+        else:
+            plt.yscale('linear')
 
-    #plt.ylim([0, 3.0])
-    plt.title(os.path.basename(path), fontsize=14)
-    plt.xlabel('Matrix Dimension (N x N)', fontsize=12)
-    plt.ylabel('Cycles', fontsize=12)
-    plt.grid(True, color='lightgray', linestyle='--', linewidth=1)
-    plt.legend()
+        plt.xlim([min(dataset_sizes), max(dataset_sizes)])
+        plt.xticks(ticks=dataset_sizes)
+
+        #plt.ylim([0, 3.0])
+        plt.title(os.path.basename(path), fontsize=14)
+        plt.xlabel('Matrix Dimension (N x N)', fontsize=12)
+        plt.ylabel('Cycles', fontsize=12)
+        plt.grid(True, color='lightgray', linestyle='--', linewidth=1)
+        
+    """ handles, labels = plt.gca().get_legend_handles_labels()
+
+    #specify order of items in legend
+    order = [0,4,5,3,2,1]
+
+    #add legend to plot
+    plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order]) """
+
+
     path = os.path.join(path, "plotting", "Solvers{}.png".format('_log' if logScale else '_linear'))
     plt.savefig(path)
 
@@ -78,8 +102,8 @@ def printSpeedup(results, dataset_sizes, imp_names):
         if i == base_index:
             continue
 
-        speedup = round(base_result / result)
-        msg = "{}: {} cycles (Speedup: {:})".format(os.path.basename(imp_names[i]), round(result, 2), speedup)
+        speedup = base_result / float(result)
+        msg = "{}: {} cycles (Speedup: {:})".format(os.path.basename(imp_names[i]), round(result, 2), round(speedup, 2))
 
         if result < base_result:
             printGreen(msg)
@@ -101,7 +125,7 @@ def runPlotter(dir, dataset_sizes, runs):
     else:
 
         files = get_files(dir)
-        implementations = [files["base"]] + files["opt"]
+        implementations = files["opt"]#[files["base"]] + files["opt"]
         results = []
 
         for i, impl in enumerate(implementations, start=1):
@@ -130,6 +154,6 @@ if __name__ == "__main__":
     path_gemm = "./linear-algebra/blas/gemm"
     path_ludcmp = "./linear-algebra/solvers/ludcmp"
 
-    dataset_sizes = [2**i for i in range(8, 12)]
+    dataset_sizes = [2**i for i in range(3, 5)]
 
     runPlotter(path_ludcmp, dataset_sizes, runs=2)
