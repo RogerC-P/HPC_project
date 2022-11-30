@@ -26,7 +26,7 @@ def time_bench(dir, dataset_sizes = ["MEDIUM_DATASET"]):
 
         print("{}".format(os.path.basename(base)), end =" ... ", flush=True)
         base_result = run_impl(base, dataset_size)
-        print("{} cycles".format(base_result))
+        print("{} seconds".format(base_result))
 
         for other_impl in optimizations:
             print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
@@ -61,7 +61,7 @@ def run_impl(impl, dataset_size = 2048, runs = 1):
     joined_flags = " ".join(flags)
 
     # Compile implementation
-    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -DPOLYBENCH_CYCLE_ACCURATE_TIMER -o executable")
+    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -o executable")
     
     total = 0
     # Run and get output
@@ -75,7 +75,7 @@ def run_impl(impl, dataset_size = 2048, runs = 1):
             output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
         else:
             output = os.popen("./executable 2>&1").read()
-        total += int(output)
+        total += float(output)
     return total / runs
 
 
