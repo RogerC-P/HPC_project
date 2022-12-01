@@ -30,11 +30,11 @@
 #  endif
 
 #  ifdef LARGE_DATASET
-#   define N 2000
+#   define N 20000
 #  endif
 
 #  ifdef EXTRALARGE_DATASET
-#   define N 4000
+#   define N 40000
 #  endif
 
 

@@ -1,7 +1,7 @@
 CC=mpicc
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-									 -DPOLYBENCH_TIME -DN_RUNS=20
+									 -DPOLYBENCH_TIME -DN_RUNS=40
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O1 -g -march=native -fopenmp \
 # 									 -DPOLYBENCH_TIME -DN_RUNS=1000
@@ -42,18 +42,20 @@ T = 1
 
 openmp_job: $(benchmark)
 	mkdir -p results
-	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(T)" --open-mode=truncate \
+	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
-				--constraint=$(CPU) --time=1:00 \
+				--constraint=$(CPU) \
 				--wrap="./$(benchmark)"
+
+N_JOBS = 2
 
 mpi_cmd = mpirun -n $(M) --map-by node:PE=$(T) $(benchmark)
 
 mpi_job: $(benchmark)
 	mkdir -p results
-	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(N)-$(M)-$(T)" --open-mode=truncate \
+	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(N)-$(M)-$(T)" \
 				--ntasks=$(N) --ntasks-per-node=$(T) \
-				--constraint=$(CPU) \
+				--constraint=$(CPU) --time=0:10 \
 				--wrap="unset LSB_AFFINITY_HOSTFILE; $(mpi_cmd)"
 
 clean:

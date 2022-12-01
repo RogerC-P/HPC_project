@@ -42,9 +42,9 @@
 #  endif
 
 #  ifdef EXTRALARGE_DATASET
-#   define NI 2000
-#   define NJ 2300
-#   define NK 2600
+#   define NI 20000
+#   define NJ 23000
+#   define NK 26000
 #  endif
 
 

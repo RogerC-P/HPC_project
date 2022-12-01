@@ -175,11 +175,6 @@ void kernel_ludcmp_original(int n,
 
 }
 
-#ifndef KERNEL_FUNC
-#define KERNEL_FUNC kernel_ludcmp
-#endif
-
-
 int main(int argc, char** argv)
 {
   MPI_Init(NULL, NULL);
@@ -212,7 +207,7 @@ int main(int argc, char** argv)
     }
 
     /* Run kernel. */
-    kernel_ludcmp_original (n,
+    kernel_ludcmp (n,
        POLYBENCH_ARRAY(A),
        POLYBENCH_ARRAY(b),
        POLYBENCH_ARRAY(x),
