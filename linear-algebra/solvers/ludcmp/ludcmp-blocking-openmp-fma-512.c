@@ -322,7 +322,7 @@ void block_lu_factorization_recursive_opt_avx_b16(
             DATA_TYPE sum4 = 0.0;
 
             int krest = 0;
-            for (int k = krest; k+4 <= (i+1); k+=4) {
+            for (int k = krest; k+4 <= s; k+=4) {
                 sum1 += l[i][k+0] * A[o + k+0][o + s + j];
                 sum2 += l[i][k+1] * A[o + k+1][o + s + j];
                 sum3 += l[i][k+2] * A[o + k+2][o + s + j];
@@ -333,7 +333,7 @@ void block_lu_factorization_recursive_opt_avx_b16(
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int k = krest; k < (i+1); k++) {
+            for (int k = krest; k < s; k++) {
                 sum1 += l[i][k] * A[o + k][o + s + j];
 
                 #ifdef COUNT_FLOPS
@@ -357,7 +357,7 @@ void block_lu_factorization_recursive_opt_avx_b16(
             DATA_TYPE sum4 = 0.0;
 
             int krest = 0;
-            for (int k = krest; k+4 <= (j+1); k+=4) {
+            for (int k = krest; k+4 <= s; k+=4) {
                 sum1 += A[o + s + i][o + k+0] * u[k+0][j];
                 sum2 += A[o + s + i][o + k+1] * u[k+1][j];
                 sum3 += A[o + s + i][o + k+2] * u[k+2][j];
@@ -368,7 +368,7 @@ void block_lu_factorization_recursive_opt_avx_b16(
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int k = krest; k < (j+1); k++) {
+            for (int k = krest; k < s; k++) {
                 sum1 += A[o + s + i][o + k] * u[k][j];
 
                 #ifdef COUNT_FLOPS
@@ -387,43 +387,43 @@ void block_lu_factorization_recursive_opt_avx_b16(
     for (int i = o; i < n; i++) {
         int jrest = o;
         for (int j = jrest; j+8 <= n; j+=8) {
-            __m256d sumv1 = _mm256_setzero_pd();
-            __m256d sumv2 = _mm256_setzero_pd();
-            __m256d sumv3 = _mm256_setzero_pd();
-            __m256d sumv4 = _mm256_setzero_pd();
-            __m256d sumv5 = _mm256_setzero_pd();
-            __m256d sumv6 = _mm256_setzero_pd();
-            __m256d sumv7 = _mm256_setzero_pd();
-            __m256d sumv8 = _mm256_setzero_pd();
+            __m512d sumv1 = _mm512_setzero_pd();
+            __m512d sumv2 = _mm512_setzero_pd();
+            __m512d sumv3 = _mm512_setzero_pd();
+            __m512d sumv4 = _mm512_setzero_pd();
+            __m512d sumv5 = _mm512_setzero_pd();
+            __m512d sumv6 = _mm512_setzero_pd();
+            __m512d sumv7 = _mm512_setzero_pd();
+            __m512d sumv8 = _mm512_setzero_pd();
 
             int krest = 0;
             for (int k = krest; k+4 <= s; k+=4) {
-                __m256d LL = _mm256_loadu_pd(&L[i][o+k]); 
+                __m512d LL = _mm512_loadu_pd(&L[i][o+k]); 
 
-                __m256d L1 = _mm256_set1_pd(((double *) &LL)[0]); 
-                __m256d L2 = _mm256_set1_pd(((double *) &LL)[1]); 
-                __m256d L3 = _mm256_set1_pd(((double *) &LL)[2]); 
-                __m256d L4 = _mm256_set1_pd(((double *) &LL)[3]); 
+                __m512d L1 = _mm512_set1_pd(((double *) &LL)[0]); 
+                __m512d L2 = _mm512_set1_pd(((double *) &LL)[1]); 
+                __m512d L3 = _mm512_set1_pd(((double *) &LL)[2]); 
+                __m512d L4 = _mm512_set1_pd(((double *) &LL)[3]); 
                 
-                __m256d U1 = _mm256_loadu_pd(&U[o+k+0][j]);
-                __m256d U2 = _mm256_loadu_pd(&U[o+k+1][j]);
-                __m256d U3 = _mm256_loadu_pd(&U[o+k+2][j]);
-                __m256d U4 = _mm256_loadu_pd(&U[o+k+3][j]);
+                __m512d U1 = _mm512_loadu_pd(&U[o+k+0][j]);
+                __m512d U2 = _mm512_loadu_pd(&U[o+k+1][j]);
+                __m512d U3 = _mm512_loadu_pd(&U[o+k+2][j]);
+                __m512d U4 = _mm512_loadu_pd(&U[o+k+3][j]);
 
-                __m256d U5 = _mm256_loadu_pd(&U[o+k+0][j+4]);
-                __m256d U6 = _mm256_loadu_pd(&U[o+k+1][j+4]);
-                __m256d U7 = _mm256_loadu_pd(&U[o+k+2][j+4]);
-                __m256d U8 = _mm256_loadu_pd(&U[o+k+3][j+4]);
+                __m512d U5 = _mm512_loadu_pd(&U[o+k+0][j+8]);
+                __m512d U6 = _mm512_loadu_pd(&U[o+k+1][j+8]);
+                __m512d U7 = _mm512_loadu_pd(&U[o+k+2][j+8]);
+                __m512d U8 = _mm512_loadu_pd(&U[o+k+3][j+8]);
 
-                sumv1 = _mm256_fmadd_pd(L1, U1, sumv1);
-                sumv2 = _mm256_fmadd_pd(L2, U2, sumv2);
-                sumv3 = _mm256_fmadd_pd(L3, U3, sumv3);
-                sumv4 = _mm256_fmadd_pd(L4, U4, sumv4);
+                sumv1 = _mm512_fmadd_pd(L1, U1, sumv1);
+                sumv2 = _mm512_fmadd_pd(L2, U2, sumv2);
+                sumv3 = _mm512_fmadd_pd(L3, U3, sumv3);
+                sumv4 = _mm512_fmadd_pd(L4, U4, sumv4);
 
-                sumv5 = _mm256_fmadd_pd(L1, U5, sumv5);
-                sumv6 = _mm256_fmadd_pd(L2, U6, sumv6);
-                sumv7 = _mm256_fmadd_pd(L3, U7, sumv7);
-                sumv8 = _mm256_fmadd_pd(L4, U8, sumv8);
+                sumv5 = _mm512_fmadd_pd(L1, U5, sumv5);
+                sumv6 = _mm512_fmadd_pd(L2, U6, sumv6);
+                sumv7 = _mm512_fmadd_pd(L3, U7, sumv7);
+                sumv8 = _mm512_fmadd_pd(L4, U8, sumv8);
                 krest = k + 8;
 
                 #ifdef COUNT_FLOPS
@@ -431,41 +431,41 @@ void block_lu_factorization_recursive_opt_avx_b16(
                 #endif
             }
 
-            sumv1 = _mm256_add_pd(sumv1, sumv2);
-            sumv3 = _mm256_add_pd(sumv3, sumv4);
+            sumv1 = _mm512_add_pd(sumv1, sumv2);
+            sumv3 = _mm512_add_pd(sumv3, sumv4);
 
-            sumv1 = _mm256_add_pd(sumv1, sumv3);
+            sumv1 = _mm512_add_pd(sumv1, sumv3);
 
-            sumv5 = _mm256_add_pd(sumv5, sumv6);
-            sumv7 = _mm256_add_pd(sumv7, sumv8);
+            sumv5 = _mm512_add_pd(sumv5, sumv6);
+            sumv7 = _mm512_add_pd(sumv7, sumv8);
 
-            sumv5 = _mm256_add_pd(sumv5, sumv7);
+            sumv5 = _mm512_add_pd(sumv5, sumv7);
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 24; 
             #endif
 
-            __m256d A1 = _mm256_loadu_pd(&A[i][j]);
-            __m256d A2 = _mm256_loadu_pd(&A[i][j+4]);
+            __m512d A1 = _mm512_loadu_pd(&A[i][j]);
+            __m512d A2 = _mm512_loadu_pd(&A[i][j+8]);
 
             for (int k = krest; k < s; k++) {
-                __m256d L1 = _mm256_set1_pd(L[i][o + k]); 
-                __m256d U1 = _mm256_loadu_pd(&U[o+k][j]);
-                sumv1 = _mm256_fmadd_pd(L1, U1, sumv1);
+                __m512d L1 = _mm512_set1_pd(L[i][o + k]); 
+                __m512d U1 = _mm512_loadu_pd(&U[o+k][j]);
+                sumv1 = _mm512_fmadd_pd(L1, U1, sumv1);
 
-                __m256d U2 = _mm256_loadu_pd(&U[o+k][j+4]);
-                sumv5 = _mm256_fmadd_pd(L1, U2, sumv5);
+                __m512d U2 = _mm512_loadu_pd(&U[o+k][j+8]);
+                sumv5 = _mm512_fmadd_pd(L1, U2, sumv5);
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 16; 
                 #endif
             }
 
-            A1 = _mm256_sub_pd(A1, sumv1);
-            _mm256_storeu_pd(&A[i][j], A1);
+            A1 = _mm512_sub_pd(A1, sumv1);
+            _mm512_storeu_pd(&A[i][j], A1);
             
-            A2 = _mm256_sub_pd(A2, sumv5);
-            _mm256_storeu_pd(&A[i][j+4], A2);
+            A2 = _mm512_sub_pd(A2, sumv5);
+            _mm512_storeu_pd(&A[i][j+8], A2);
             
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 8; 
@@ -534,31 +534,35 @@ void block_lu_factorization_opt_avx_double_b16(int n,
 
     // Solve Ly = b for y (forward substitution)
     for (int i = 0; i < n; i++) {
-        __m256d sum1 = _mm256_set1_pd(0.0);
-        __m256d sum2 = _mm256_set1_pd(0.0);
+        __m512d sum1 = _mm512_set1_pd(0.0);
+        __m512d sum2 = _mm512_set1_pd(0.0);
 
         int jrest = 0;
-        for (int j = jrest; j+8<= i; j+=8) {
-            __m256d L1 = _mm256_loadu_pd(&L[i][j]);
-            __m256d y1 = _mm256_loadu_pd(&y[j]);
-            __m256d L2 = _mm256_loadu_pd(&L[i][j+4]);
-            __m256d y2 = _mm256_loadu_pd(&y[j+4]);
-            sum1 = _mm256_fmadd_pd(L1, y1, sum1);
-            sum2 = _mm256_fmadd_pd(L2, y2, sum2);
-            jrest = j + 8;
+        for (int j = jrest; j+16<= i; j+=16) {
+            __m512d L1 = _mm512_loadu_pd(&L[i][j]);
+            __m512d y1 = _mm512_loadu_pd(&y[j]);
+            __m512d L2 = _mm512_loadu_pd(&L[i][j+4]);
+            __m512d y2 = _mm512_loadu_pd(&y[j+4]);
+            sum1 = _mm512_fmadd_pd(L1, y1, sum1);
+            sum2 = _mm512_fmadd_pd(L2, y2, sum2);
+            jrest = j + 16;
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 16; 
             #endif
         }
 
-        sum1 = _mm256_add_pd(sum1, sum2);
+        sum1 = _mm512_add_pd(sum1, sum2);
 
         double *sum1_vec_arr = (double *) &sum1;
         double sum = sum1_vec_arr[0]
             + sum1_vec_arr[1]
             + sum1_vec_arr[2]
-            + sum1_vec_arr[3];
+            + sum1_vec_arr[3]
+            + sum1_vec_arr[4]
+            + sum1_vec_arr[5]
+            + sum1_vec_arr[6]
+            + sum1_vec_arr[7];
 
         #ifdef COUNT_FLOPS
             FLOP_COUNTER += 7; 
