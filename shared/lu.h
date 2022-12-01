@@ -67,6 +67,11 @@ void lu(int n, double *A)
 
   double *B = (double *) malloc(dist_size);
 
+  if (!B) {
+    printf("Error: Out of memory :(\n");
+    exit(-1);
+  }
+
   int position = 0;
   MPI_Pack(A, 1, dist_types[rank], B, dist_size, &position, MPI_COMM_WORLD) ;
 
