@@ -32,8 +32,9 @@ def time_bench(dataset_sizes, dir):
             print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
             other_result = run_impl(other_impl, dataset_size)
 
-            percentage_improvement = round((other_result - base_result) / base_result * 100)
-            msg = "{} cycles ({:+}%)".format(other_result, percentage_improvement)
+            #percentage_improvement = round((other_result - base_result) / base_result * 100)
+            speedup = round(base_result / other_result)
+            msg = "{} seconds ({}x speedup)".format(other_result, speedup)
 
             if other_result < base_result:
                 printGreen(msg)
@@ -44,7 +45,7 @@ def time_bench(dataset_sizes, dir):
 
 
 
-def run_impl(impl, dataset_size, runs = 5):
+def run_impl(impl, dataset_size, runs = 3):
     header = impl.replace(".c", "")
 
     if "mpi" in impl:
