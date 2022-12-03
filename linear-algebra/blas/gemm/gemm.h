@@ -36,15 +36,15 @@
 #  endif
 
 #  ifdef LARGE_DATASET
-#   define NI 1000
-#   define NJ 1100
-#   define NK 1200
+#   define NI 10000
+#   define NJ 10000
+#   define NK 80
 #  endif
 
 #  ifdef EXTRALARGE_DATASET
-#   define NI 20000
-#   define NJ 23000
-#   define NK 26000
+#   define NI 2000
+#   define NJ 2300
+#   define NK 2600
 #  endif
 
 

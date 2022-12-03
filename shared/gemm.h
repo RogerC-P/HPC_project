@@ -13,9 +13,13 @@
 #include <immintrin.h>
 #include <omp.h>
 
-#define BI 20
-#define BJ 40
-#define BK 12
+#define BI 40
+#define BJ 24
+#define BK 80
+
+// #define BI 40
+// #define BJ 20
+// #define BK 20
 
 #define BLOCK_MULT(k_end) do { \
   __m256d ab00 = _mm256_set1_pd(0.0); \
@@ -92,7 +96,7 @@ void gemm
   __m256d valpha = _mm256_set1_pd(alpha);
 
 #ifdef PARALLEL_GEMM
-  #pragma omp for schedule(static, 1)
+  #pragma omp for
 #endif
   for (int i = 0; i < m - BI + 1; i += BI) {
     int j;
@@ -131,18 +135,16 @@ void gemm
       }
     }
   }
+  int i = BI * (m / BI);
 
 #ifdef PARALLEL_GEMM
   #pragma omp master
 #endif
-  {
-    int i = BI * (m / BI);
-    for (; i < m; i++) {
-      for (int j = 0; j < n; j++) {
-        C[i * ldc + j] *= beta;
-        for (int l = 0; l < k; l++) {
-          C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
-        }
+  for (; i < m; i++) {
+    for (int j = 0; j < n; j++) {
+      C[i * ldc + j] *= beta;
+      for (int l = 0; l < k; l++) {
+        C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
       }
     }
   }

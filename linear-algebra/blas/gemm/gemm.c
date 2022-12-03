@@ -15,6 +15,7 @@
 #include <math.h>
 #include <immintrin.h>
 
+#include <gemm.h>
 #define PARALLEL_GEMM
 #include <gemm.h>
 
@@ -80,7 +81,7 @@ void kernel_gemm(int ni, int nj, int nk,
 {
 #pragma scop
   #pragma omp parallel
-  pgemm(ni, nj, nk, alpha, &A[0][0], nk, &B[0][0], nj, beta, &C[0][0], nj);
+  pgemm(ni / 2, nj, nk, alpha, &A[ni / 2][0], nk, &B[0][0], nj, beta, &C[ni / 2][0], nj);
 #pragma endscop
 }
 
