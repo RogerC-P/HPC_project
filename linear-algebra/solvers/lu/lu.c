@@ -95,11 +95,6 @@ void kernel_lu_original(int n,
 
 int main(int argc, char** argv)
 {
-  MPI_Init(NULL, NULL);
-
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
   /* Retrieve problem size. */
   int n = N;
 
@@ -114,32 +109,23 @@ int main(int argc, char** argv)
   init_array (n, POLYBENCH_ARRAY(A));
 
   for (int i = 0; i < N_RUNS; i++) {
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    if (rank == 0) {
-      /* Start timer. */
-      polybench_start_instruments;
-    }
+    polybench_start_instruments;
 
     /* Run kernel. */
     kernel_lu (n, POLYBENCH_ARRAY(A));
 
-    if (rank == 0) {
-      /* Stop and print timer. */
-      polybench_stop_instruments;
-      polybench_print_instruments;
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
 
-      /* Prevent dead-code elimination. All live-out data must be printed
-         by the function call in argument. */
-      polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A)));
-    }
+    /* Prevent dead-code elimination. All live-out data must be printed
+       by the function call in argument. */
+    polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(A)));
   }
 
 
   /* Be clean. */
   POLYBENCH_FREE_ARRAY(A);
-
-  MPI_Finalize();
 
   return 0;
 }

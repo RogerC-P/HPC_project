@@ -92,7 +92,7 @@ void gemm
   __m256d valpha = _mm256_set1_pd(alpha);
 
 #ifdef PARALLEL_GEMM
-  #pragma omp for
+  #pragma omp for schedule(static, 1)
 #endif
   for (int i = 0; i < m - BI + 1; i += BI) {
     int j;
@@ -134,20 +134,14 @@ void gemm
 
 #ifdef PARALLEL_GEMM
   #pragma omp master
-  {
-    #pragma omp task
-    {
-#else
-  {
-    {
 #endif
-      int i = BI * (m / BI);
-      for (; i < m; i++) {
-        for (int j = 0; j < n; j++) {
-          C[i * ldc + j] *= beta;
-          for (int l = 0; l < k; l++) {
-            C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
-          }
+  {
+    int i = BI * (m / BI);
+    for (; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        C[i * ldc + j] *= beta;
+        for (int l = 0; l < k; l++) {
+          C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
         }
       }
     }
