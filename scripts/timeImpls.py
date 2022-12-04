@@ -43,7 +43,6 @@ def time_bench(dataset_sizes, dir):
                 print(msg)
 
 
-
 def run_impl(impl, dataset_size, runs = 5):
     header = impl.replace(".c", "")
 
