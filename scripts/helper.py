@@ -9,7 +9,7 @@ def get_files(dir):
     base_impl = os.path.join(dir, base_name)
     optimized_impls = list(map(
         lambda name: os.path.join(dir, name), 
-        filter(lambda name: name.endswith(".c") and name != base_name, os.listdir(dir))
+        filter(lambda name: name.endswith(".c") or name.endswith(".rs") and name != base_name, os.listdir(dir))
     ))
 
     files = {

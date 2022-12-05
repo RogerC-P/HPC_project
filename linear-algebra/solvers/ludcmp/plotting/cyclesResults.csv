@@ -1,0 +1,2 @@
+linear-algebra/solvers/ludcmp/ludcmp.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-inplace.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma-mpi.c,linear-algebra/solvers/ludcmp/ludcmp-blocking.c,linear-algebra/solvers/ludcmp/blas.rs,dataset_sizes
+16.147667,0.285938,1.150189,2.482509,2.624034,2.251095,0.2169205,2048
