@@ -13,15 +13,11 @@
 #include <immintrin.h>
 #include <omp.h>
 
-#define BI 40
-#define BJ 24
-#define BK 80
+#define BI 16
+#define BJ 16
+#define BK 16
 
-// #define BI 40
-// #define BJ 20
-// #define BK 20
-
-#define BLOCK_MULT(k_end) do { \
+#define BLOCK_MULT(k_start, k_end) do { \
   __m256d ab00 = _mm256_set1_pd(0.0); \
   __m256d ab01 = _mm256_set1_pd(0.0); \
   __m256d ab02 = _mm256_set1_pd(0.0); \
@@ -32,7 +28,7 @@
   __m256d ab12 = _mm256_set1_pd(0.0); \
   __m256d ab13 = _mm256_set1_pd(0.0); \
  \
-  for (int w = k; w < k_end; w++) { \
+  for (int w = k_start; w < k_end; w++) { \
     __m256d a0 = _mm256_set1_pd(A[(u + 0) * lda + w]); \
     __m256d a1 = _mm256_set1_pd(A[(u + 1) * lda + w]); \
     __m256d a2 = _mm256_set1_pd(A[(u + 2) * lda + w]); \
@@ -107,23 +103,22 @@ void gemm
         }
       }
 
-      int l;
-      for (l = 0; l < k - BK + 1; l += BK) {
+      for (int l = 0; l < k - BK + 1; l += BK) {
         for (int u = i; u < i + BI; u += 4) {
           for (int v = j; v < j + BJ; v += 8) {
-            BLOCK_MULT(l + BK);
+            BLOCK_MULT(l, l + BK);
           }
         }
       }
 
       for (int u = i; u < i + BI; u += 4) {
         for (int v = j; v < j + BJ; v += 8) {
-          BLOCK_MULT(l);
+          BLOCK_MULT(BK * (k / BK), k);
         }
       }
     }
 
-    for (; j < n; j++) {
+    for (int j = BJ * (n / BJ); j < n; j++) {
       for (int u = i; u < i + BI; u++) {
         C[u * ldc + j] *= beta;
       }
@@ -135,14 +130,16 @@ void gemm
       }
     }
   }
-  int i = BI * (m / BI);
+
+  #pragma omp barrier
 
 #ifdef PARALLEL_GEMM
   #pragma omp master
 #endif
-  for (; i < m; i++) {
+  for (int i = BI * (m / BI); i < m; i++) {
     for (int j = 0; j < n; j++) {
       C[i * ldc + j] *= beta;
+
       for (int l = 0; l < k; l++) {
         C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
       }

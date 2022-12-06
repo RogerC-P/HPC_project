@@ -32,7 +32,7 @@ void swap(double **a, double **b) {
   *b = tmp;
 }
 
-#define BLOCK_SIZE 40
+#define BLOCK_SIZE 80
 
 /* Main computational kernel. The whole function will be timed,
    including the call and return. */
