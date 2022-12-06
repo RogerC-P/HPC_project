@@ -39,7 +39,7 @@ def plotResults(results, dataset_sizes, imp_names, path, logScale):
 
     imp_names = list(map(lambda x: os.path.basename(x), imp_names))
 
-    BAR_CHART = True
+    BAR_CHART = False
     if BAR_CHART:
         if logScale:
             return 
@@ -85,11 +85,10 @@ def plotResults(results, dataset_sizes, imp_names, path, logScale):
     path = os.path.join(path, "plotting", "Solvers{}.png".format('_log' if logScale else '_linear'))
     plt.savefig(path)
 
-def printSpeedup(results, dataset_sizes, imp_names):
+def printSpeedup(results, dataset_sizes, imp_names, base_name):
     results = [result[-1] for result in results]
     N = dataset_sizes[-1]
 
-    base_name = min(imp_names, key=len)
     base_result = max(results)
     base_index = imp_names.index(base_name)
 
@@ -103,7 +102,7 @@ def printSpeedup(results, dataset_sizes, imp_names):
             continue
 
         speedup = base_result / float(result)
-        msg = "{}: {} cycles (Speedup: {:})".format(os.path.basename(imp_names[i]), round(result, 2), round(speedup, 2))
+        msg = "{}: {} seconds (Speedup: {:})".format(os.path.basename(imp_names[i]), round(result, 2), round(speedup, 2))
 
         if result < base_result:
             printGreen(msg)
@@ -115,16 +114,14 @@ def printSpeedup(results, dataset_sizes, imp_names):
 
 
 def runPlotter(dir, dataset_sizes, runs):
-    DRAW_PLOT = True
-
+    DRAW_PLOT = False
+    files = get_files(dir)
     if DRAW_PLOT:
         results, dataset_sizes, implementations = loadResults(dir)
         plotResults(results, dataset_sizes, implementations, dir, True)
         plotResults(results, dataset_sizes, implementations, dir, False)
-        printSpeedup(results, dataset_sizes, implementations)
+        printSpeedup(results, dataset_sizes, implementations, files["base"])
     else:
-
-        files = get_files(dir)
         implementations = files["opt"]#[files["base"]] + files["opt"]
         results = []
 
@@ -133,16 +130,16 @@ def runPlotter(dir, dataset_sizes, runs):
             dataset_results = []
             for dataset_size in dataset_sizes:
                 print(f'\033[94m{impl} with {dataset_size}\033[0m')
-                cycles = run_impl(impl, dataset_size, runs=runs)
-                if cycles != None:
-                    dataset_results.append(cycles)
+                seconds = run_impl(impl, dataset_size, runs=runs)
+                if seconds != None:
+                    dataset_results.append(seconds)
             results.append(dataset_results)
 
         saveResults(results, dataset_sizes, implementations, dir)
 
         plotResults(results, dataset_sizes, implementations, dir, True)
         plotResults(results, dataset_sizes, implementations, dir, False)
-        printSpeedup(results, dataset_sizes, implementations)
+        printSpeedup(results, dataset_sizes, implementations, files["base"])
         
         """     
         try:
@@ -154,6 +151,6 @@ if __name__ == "__main__":
     path_gemm = "./linear-algebra/blas/gemm"
     path_ludcmp = "./linear-algebra/solvers/ludcmp"
 
-    dataset_sizes = [2**i for i in range(3, 5)]
+    dataset_sizes = [2**i for i in range(8, 16)]
 
-    runPlotter(path_ludcmp, dataset_sizes, runs=2)
+    runPlotter(path_ludcmp, dataset_sizes, runs=5)

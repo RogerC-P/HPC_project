@@ -43,8 +43,7 @@ def time_bench(dataset_sizes, dir):
                 print(msg)
 
 
-
-def run_impl(impl, dataset_size, runs = 5):
+def run_impl(impl:str, dataset_size, runs = 5):
     header = impl.replace(".c", "")
 
     if "mpi" in impl:
@@ -52,7 +51,7 @@ def run_impl(impl, dataset_size, runs = 5):
     else:
         compiler = "gcc"
 
-    flags = ["-O3"]
+    flags = ["-O3", "-std=c99", "-D_POSIX_C_SOURCE=200112L", "-O3", "-march=native"]
     if "fma" in impl:
         flags.append("-mfma")
     if "openmp" in impl:
@@ -61,22 +60,19 @@ def run_impl(impl, dataset_size, runs = 5):
     joined_flags = " ".join(flags)
 
     # Compile implementation
-    os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -o executable")
+    if impl.endswith(".c"):
+        os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -DN_RUNS={runs} -o executable")
     
-    total = 0
     # Run and get output
-    for _i in range(1, runs+1):
-        if runs > 1:
-            printOrange("{}/{}".format(_i, runs))
-            if _i == runs:
-                print()
-        if "mpi" in impl:
-            np = sys.argv[1] if len(sys.argv) > 1 else 2
-            output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
-        else:
-            output = os.popen("./executable 2>&1").read()
-        total += float(output)
-    return total / runs
+    if impl.endswith(".rs"):
+        output = os.popen(f"cd ludcmp-blas && cargo run -- --num-runs={runs} --dataset-size={dataset_size} && cd ..").read()
+        print("Output is: ", output)
+    elif "mpi" in impl:
+        np = 2
+        output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
+    else:
+        output = os.popen("./executable 2>&1").read()
+    return float(output)
 
 
 def printRed(text): print("\033[91m{}\033[91m" .format(text))
