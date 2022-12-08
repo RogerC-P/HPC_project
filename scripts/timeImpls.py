@@ -65,8 +65,7 @@ def run_impl(impl:str, dataset_size, runs = 5):
     
     # Run and get output
     if impl.endswith(".rs"):
-        output = os.popen(f"cd ludcmp-blas && cargo run -- --num-runs={runs} --dataset-size={dataset_size} && cd ..").read()
-        print("Output is: ", output)
+        output = os.popen(f"ludcmp-blas/target/release/ludcmp-blas --num-runs={runs} --dataset-size={dataset_size}").read()
     elif "mpi" in impl:
         np = 2
         output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
