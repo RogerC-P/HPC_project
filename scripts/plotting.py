@@ -151,6 +151,6 @@ if __name__ == "__main__":
     path_gemm = "./linear-algebra/blas/gemm"
     path_ludcmp = "./linear-algebra/solvers/ludcmp"
 
-    dataset_sizes = [2**i for i in range(8, 16)]
+    dataset_sizes = [2**i for i in range(3,6)]
 
     runPlotter(path_ludcmp, dataset_sizes, runs=5)

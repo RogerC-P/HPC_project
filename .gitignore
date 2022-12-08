@@ -1,3 +1,9 @@
 executable
 __pycache__
-ludcmp-blas/target
+ludcmp-blas/target/debug
+ludcmp-blas/target/release/.fingerprint
+ludcmp-blas/target/release/build
+ludcmp-blas/target/release/examples
+ludcmp-blas/target/release/incremental
+ludcmp-blas/target/release/deps
+!ludcmp-blas/target/release/ludcmp-blas
