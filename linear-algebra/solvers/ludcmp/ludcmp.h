@@ -15,15 +15,15 @@
 #define SIZE_DATASET 2048
 #endif
 
-#if !defined(N)
+#if !defined(NN)
 /* Define sample dataset sizes. */
 #ifdef SIZE_DATASET
-#define N SIZE_DATASET
+#define NN SIZE_DATASET
 #endif
 
-#endif /* !(N) */
+#endif /* !(NN) */
 
-#define _PB_N POLYBENCH_LOOP_BOUND(N, n)
+#define _PB_N POLYBENCH_LOOP_BOUND(NN, n)
 
 /* Default data type */
 #if !defined(DATA_TYPE_IS_INT) && !defined(DATA_TYPE_IS_FLOAT) && !defined(DATA_TYPE_IS_DOUBLE)

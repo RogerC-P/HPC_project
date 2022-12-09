@@ -19,10 +19,10 @@
 /* Array initialization. */
 static
 void init_array (int n,
-		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		 DATA_TYPE POLYBENCH_1D(b,N,n),
-		 DATA_TYPE POLYBENCH_1D(x,N,n),
-		 DATA_TYPE POLYBENCH_1D(y,N,n))
+		 DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		 DATA_TYPE POLYBENCH_1D(b,NN,n),
+		 DATA_TYPE POLYBENCH_1D(x,NN,n),
+		 DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
   int i, j;
   DATA_TYPE fn = (DATA_TYPE)n;
@@ -47,7 +47,7 @@ void init_array (int n,
   /* Make the matrix positive semi-definite. */
   /* not necessary for LU, but using same code as cholesky */
   int r,s,t;
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, NN, NN, n, n);
   for (r = 0; r < n; ++r)
     for (s = 0; s < n; ++s)
       (POLYBENCH_ARRAY(B))[r][s] = 0;
@@ -67,7 +67,7 @@ void init_array (int n,
    Can be used also to check the correctness of the output. */
 static
 void print_array(int n,
-		 DATA_TYPE POLYBENCH_1D(x,N,n))
+		 DATA_TYPE POLYBENCH_1D(x,NN,n))
 
 {
   int i;
@@ -340,10 +340,10 @@ void block_lu_factorization_recursive(
 // Solves Ax=b for x
 // Modifies A, x, and b.
 void block_lu_factorization(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n)
+		   DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,NN,n),
+		   DATA_TYPE POLYBENCH_1D(x,NN,n),
+		   DATA_TYPE POLYBENCH_1D(y,NN,n)
 ) {
 
     int s = min(16, n);
@@ -397,10 +397,10 @@ void block_lu_factorization(int n,
    including the call and return. */
 static
 void kernel_ludcmp(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n))
+		   DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,NN,n),
+		   DATA_TYPE POLYBENCH_1D(x,NN,n),
+		   DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
   int i,j,k;
   DATA_TYPE w;
@@ -414,13 +414,13 @@ void kernel_ludcmp(int n,
 int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
-  int n = N;
+  int n = NN;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, NN, NN, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, NN, n);
 
 
   /* Initialize array(s). */

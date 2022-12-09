@@ -58,6 +58,8 @@ def run_impl(impl, dataset_size, runs = 3):
         flags.append("-mfma")
     if "openmp" in impl:
         flags.append("-fopenmp")
+    if "blas" in impl:
+        flags.append("-I /usr/include/openblas -lopenblas")
 
     joined_flags = " ".join(flags)
 

@@ -47,6 +47,8 @@ def run_impl(impl):
         flags.append("-mfma")
     if "openmp" in impl:
         flags.append("-fopenmp")
+    if "blas" in impl:
+        flags.append("-I /usr/include/openblas -lopenblas")
 
     joined_flags = " ".join(flags)
 
@@ -64,6 +66,7 @@ def run_impl(impl):
         printRed("-"*30)
         print(output)
         printRed("-"*30)
+
     digits = [float(x) for x in output.split() if isfloat(x)]
     return digits
 
@@ -77,8 +80,9 @@ def isfloat(num):
 
 
 def same_arrays(arr1, arr2):
-
     if len(arr1) != len(arr2):
+        print("arr1", arr1)
+        print("arr2", arr2)
         printRed("Array Length missmatch: " + str(len(arr1)) + " vs " + str(len(arr2)))
         return False
 
