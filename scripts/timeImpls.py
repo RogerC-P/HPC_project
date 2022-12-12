@@ -67,9 +67,7 @@ def run_impl(impl:str, dataset_size, runs = 5):
         os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -DN_RUNS={runs} -o executable")
     
     # Run and get output
-    if impl.endswith(".rs"):
-        output = os.popen(f"ludcmp-blas/target/release/ludcmp-blas --num-runs={runs} --dataset-size={dataset_size}").read()
-    elif "mpi" in impl:
+    if "mpi" in impl:
         np = 2
         output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
     else:
