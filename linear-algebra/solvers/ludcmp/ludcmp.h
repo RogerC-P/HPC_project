@@ -22,21 +22,20 @@
 #  endif
 
 #  ifdef SMALL_DATASET
-#   define N 120
+#   define N (1 << 11)
 #  endif
 
 #  ifdef MEDIUM_DATASET
-#   define N 400
+#   define N (1 << 12)
 #  endif
 
 #  ifdef LARGE_DATASET
-#   define N 2000
+#   define N (1 << 13)
 #  endif
 
 #  ifdef EXTRALARGE_DATASET
-#   define N 4000
+#   define N (1 << 14)
 #  endif
-
 
 #endif /* !(N) */
 

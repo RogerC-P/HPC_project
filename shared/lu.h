@@ -32,7 +32,7 @@ void swap(double **a, double **b) {
   *b = tmp;
 }
 
-#define BLOCK_SIZE 80
+#define BLOCK_SIZE 4
 
 void lu(int n, double *A)
 {
@@ -46,7 +46,8 @@ void lu(int n, double *A)
   int psizes[2] = {0, 0};
   MPI_Dims_create(world_size, 2, psizes);
 
-  while (n % (psizes[0] * BLOCK_SIZE) != 0) BLOCK_SIZE -= 1;
+  int n_old = n;
+  n = BLOCK_SIZE * (n / BLOCK_SIZE);
 
   MPI_Datatype *dist_types = (MPI_Datatype *) malloc(world_size * sizeof(MPI_Datatype));
 
@@ -195,16 +196,19 @@ void lu(int n, double *A)
 
     if (col_rank == block_idx) {
       #pragma omp for
-      for (int j = ro_n; j < m; j++) {
+      for (int u = ro_n; u < m - BLOCK_SIZE + 1; u += BLOCK_SIZE) {
         for (int k = co_k; k < co_k + BLOCK_SIZE; k++) {
-          double Bkj = B[k * m + j];
           for (int i = k + 1; i < co_k + BLOCK_SIZE; i++) {
-            B[i * m + j] -= LU_k[(i - co_k) * BLOCK_SIZE + (k - co_k)] * Bkj;
+            for (int j = u; j < u + BLOCK_SIZE; j++) {
+              B[i * m + j] -= LU_k[(i - co_k) * BLOCK_SIZE + (k - co_k)] * B[k * m + j];
+            }
           }
         }
 
         for (int i = co_k; i < co_k + BLOCK_SIZE; i++) {
-          U_k[(i - co_k) * (m - ro_n) + (j - ro_n)] = B[i * m + j];
+          for (int j = u; j < u + BLOCK_SIZE; j++) {
+            U_k[(i - co_k) * (m - ro_n) + (j - ro_n)] = B[i * m + j];
+          }
         }
       }
     }
@@ -213,6 +217,8 @@ void lu(int n, double *A)
       #pragma omp master
       for (int k = ro_k; k < ro_k + BLOCK_SIZE; k++)
         q[k - ro_k] = 1 / LU_k[(k - ro_k) * BLOCK_SIZE + (k - ro_k)];
+
+      #pragma omp barrier
 
       #pragma omp for
       for (int i = co_n; i < m; i ++) {
@@ -229,9 +235,10 @@ void lu(int n, double *A)
           L_k[(i - co_n) * BLOCK_SIZE + (j - ro_k)] = B[i * m + j];
         }
       }
+
+      #pragma omp barrier
     }
 
-    #pragma omp barrier
 
     #pragma omp master
     {
@@ -248,8 +255,6 @@ void lu(int n, double *A)
             U_p + (ro_n - ro_k), m - ro_k,
             1, B + co_n * m + ro_n, m);
     }
-
-    #pragma omp barrier
 
     #pragma omp master
     {
@@ -282,6 +287,19 @@ void lu(int n, double *A)
   }
 
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
+
+  if (rank == 0) {
+    for (int k = n; k < n_old; k++) {
+      double A_kk = A[k * n + k];
+      for (int i = k + 1; i < n; i++) A[i * n + k] /= A_kk;
+
+      for (int i = k + 1; i < n; i++) {
+        for (int j = k + 1; j < n; j++) {
+          A[i * n + j] -= A[i * n + k] * A[k * n + j];
+        }
+      }
+    }
+  }
 
   free(dist_types);
 

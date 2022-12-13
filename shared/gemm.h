@@ -130,7 +130,10 @@ void gemm
       }
     }
   }
+
+#ifdef PARALLEL_GEMM
   #pragma omp barrier
+#endif
 
 #ifdef PARALLEL_GEMM
   #pragma omp master

@@ -36,40 +36,18 @@ void init_array (int n,
   int i, j;
   DATA_TYPE fn = (DATA_TYPE)n;
 
-  for (i = 0; i < n; i++)
-    {
-      x[i] = 0;
-      y[i] = 0;
-      b[i] = (i+1)/fn/2.0 + 4;
+  for (i = 0; i < n; i++) {
+    x[i] = 0;
+    y[i] = 0;
+    b[i] = (i+1)/fn/2.0 + 100;
+  }
+
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      A[i][j] = ((DATA_TYPE) (i+1)*(j+1)) / n;
+      if (i == j) A[i][i] = n * n;
     }
-
-  for (i = 0; i < n; i++)
-    {
-      for (j = 0; j <= i; j++)
-	A[i][j] = (DATA_TYPE)(-j % n) / n + 1;
-      for (j = i+1; j < n; j++) {
-	A[i][j] = 0;
-      }
-      A[i][i] = 1;
-    }
-
-  // This is really slow
-  /* Make the matrix positive semi-definite. */
-  /* not necessary for LU, but using same code as cholesky */
-  // int r,s,t;
-  // POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
-  // for (r = 0; r < n; ++r)
-  //   for (s = 0; s < n; ++s)
-  //     (POLYBENCH_ARRAY(B))[r][s] = 0;
-  // for (t = 0; t < n; ++t)
-  //   for (r = 0; r < n; ++r)
-  //     for (s = 0; s < n; ++s)
-	// (POLYBENCH_ARRAY(B))[r][s] += A[r][t] * A[s][t];
-  //   for (r = 0; r < n; ++r)
-  //     for (s = 0; s < n; ++s)
-	// A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
-  // POLYBENCH_FREE_ARRAY(B);
-
+  }
 }
 
 
@@ -182,46 +160,53 @@ int main(int argc, char** argv)
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  /* Retrieve problem size. */
-  int n = N;
-
   /* Variable declaration/allocation. */
   POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
   POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
 
-  /* Initialize array(s). */
-  init_array (n,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(b),
-	      POLYBENCH_ARRAY(x),
-	      POLYBENCH_ARRAY(y));
+  int n0 = (N < (1 << 10)) ? N : (1 << 10);
 
-  for (int i = 0; i < N_RUNS; i++) {
-    MPI_Barrier(MPI_COMM_WORLD);
+  for (int n = n0; n <= N; n <<= 1) {
+    if (rank == 0) printf("size %d:\n", n);
 
-    if (rank == 0) {
-      /* Start timer. */
-      polybench_start_instruments;
+    for (int i = 0; i < N_RUNS; i++) {
+      /* Initialize array(s). */
+      if (rank == 0) {
+        init_array (n,
+          POLYBENCH_ARRAY(A),
+          POLYBENCH_ARRAY(b),
+          POLYBENCH_ARRAY(x),
+          POLYBENCH_ARRAY(y));
+      }
+
+      MPI_Barrier(MPI_COMM_WORLD);
+
+      if (rank == 0) {
+        /* Start timer. */
+        polybench_start_instruments;
+      }
+
+      /* Run kernel. */
+      kernel_ludcmp (n,
+         POLYBENCH_ARRAY(A),
+         POLYBENCH_ARRAY(b),
+         POLYBENCH_ARRAY(x),
+         POLYBENCH_ARRAY(y));
+
+      if (rank == 0) {
+        /* Stop and print timer. */
+        polybench_stop_instruments;
+        polybench_print_instruments;
+
+        /* Prevent dead-code elimination. All live-out data must be printed
+           by the function call in argument. */
+        polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+      }
     }
 
-    /* Run kernel. */
-    kernel_ludcmp (n,
-       POLYBENCH_ARRAY(A),
-       POLYBENCH_ARRAY(b),
-       POLYBENCH_ARRAY(x),
-       POLYBENCH_ARRAY(y));
-
-    if (rank == 0) {
-      /* Stop and print timer. */
-      polybench_stop_instruments;
-      polybench_print_instruments;
-
-      /* Prevent dead-code elimination. All live-out data must be printed
-         by the function call in argument. */
-      polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
-    }
+    if (rank == 0) printf("###\n");
   }
 
   /* Be clean. */
