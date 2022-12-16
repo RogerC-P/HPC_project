@@ -1,2 +1,5 @@
-linear-algebra/solvers/ludcmp/ludcmp.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-inplace.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma-mpi.c,linear-algebra/solvers/ludcmp/ludcmp-blocking.c,linear-algebra/solvers/ludcmp/blas.rs,dataset_sizes
-16.147667,0.285938,1.150189,2.482509,2.624034,2.251095,0.2169205,2048
+linear-algebra/solvers/ludcmp/ludcmp-blocking-inplace.c,linear-algebra/solvers/ludcmp/ludcmp-blas.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma-mpi.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp.c,linear-algebra/solvers/ludcmp/ludcmp-blocking.c,linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma-512.c,linear-algebra/solvers/ludcmp/ludcmp.c,dataset_sizes
+0.517459,0.045021,3.891947,5.154795,3.726709,0.493537,244.754284,1.207444,1024
+5.359611,0.272822,9.039879,5.976761,7.464398,3.946554,245.145474,13.356987,2048
+144.862008,1.601458,29.070718,10.423156,13.664612,31.062748,245.108949,152.176624,4096
+3248.363793,10.700772,577.516395,27.517561,36.15689,244.704748,245.34811,1380.571953,8192
