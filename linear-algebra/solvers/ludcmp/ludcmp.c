@@ -36,40 +36,18 @@ void init_array (int n,
   int i, j;
   DATA_TYPE fn = (DATA_TYPE)n;
 
-  for (i = 0; i < n; i++)
-    {
-      x[i] = 0;
-      y[i] = 0;
-      b[i] = (i+1)/fn/2.0 + 4;
+  for (i = 0; i < n; i++) {
+    x[i] = 0;
+    y[i] = 0;
+    b[i] = (i+1)/fn/2.0 + 100;
+  }
+
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      A[i][j] = ((DATA_TYPE) (i+1)*(j+1)) / n;
+      if (i == j) A[i][i] = n * n;
     }
-
-  for (i = 0; i < n; i++)
-    {
-      for (j = 0; j <= i; j++)
-	A[i][j] = (DATA_TYPE)(-j % n) / n + 1;
-      for (j = i+1; j < n; j++) {
-	A[i][j] = 0;
-      }
-      A[i][i] = 1;
-    }
-
-  // This is really slow
-  /* Make the matrix positive semi-definite. */
-  /* not necessary for LU, but using same code as cholesky */
-  // int r,s,t;
-  // POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
-  // for (r = 0; r < n; ++r)
-  //   for (s = 0; s < n; ++s)
-  //     (POLYBENCH_ARRAY(B))[r][s] = 0;
-  // for (t = 0; t < n; ++t)
-  //   for (r = 0; r < n; ++r)
-  //     for (s = 0; s < n; ++s)
-	// (POLYBENCH_ARRAY(B))[r][s] += A[r][t] * A[s][t];
-  //   for (r = 0; r < n; ++r)
-  //     for (s = 0; s < n; ++s)
-	// A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
-  // POLYBENCH_FREE_ARRAY(B);
-
+  }
 }
 
 
@@ -177,7 +155,8 @@ int main(int argc, char** argv)
 {
   printf("ludcmp\n####\n");
 
-  for (int n = (1 << 10); n <= N; n <<= 1) {
+  int n0 = (N < (1 << 10)) ? N : (1 << 10);
+  for (int n = n0; n <= N; n <<= 1) {
     printf("size %d:\n", n);
 
     /* Variable declaration/allocation. */
