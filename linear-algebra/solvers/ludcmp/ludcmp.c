@@ -192,6 +192,7 @@ int main(int argc, char** argv)
          POLYBENCH_ARRAY(x),
          POLYBENCH_ARRAY(y));
 
+
       if (rank == 0) {
         /* Stop and print timer. */
         polybench_stop_instruments;

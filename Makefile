@@ -1,12 +1,12 @@
 CC=mpicc
 
-# override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-# 									 -DPOLYBENCH_TIME -DN_RUNS=5
+override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
+									 -DPOLYBENCH_TIME -DN_RUNS=5
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O1 -g -march=native -fopenmp \
 # 									 -DPOLYBENCH_TIME -DN_RUNS=5
 
-override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -fopenmp -DBLOCK_SIZE=4
+# override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -fopenmp -DBLOCK_SIZE=4
 
 SHARED = $(wildcard shared/*)
 GEMM = $(wildcard linear-algebra/blas/gemm/*)
@@ -46,7 +46,7 @@ N = 1
 M = 1
 T = 1
 
-check: $(ludcmp) $(ludcmporiginal)
+check: ludcmp ludcmporiginal
 	./ludcmp 2> mine > /dev/null
 	./ludcmporiginal 2> original > /dev/null
 	diff mine original
@@ -71,4 +71,4 @@ mpi_job: $(benchmark)
 				--wrap="unset LSB_AFFINITY_HOSTFILE; $(mpi_cmd)"
 
 clean:
-	rm -f *.o gemm lu ludcmp
+	rm -f *.o gemm lu ludcmp ludcmporiginal
