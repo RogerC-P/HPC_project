@@ -13,19 +13,16 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
-#include <mpi.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
 
 /* Include benchmark-specific header. */
 #include "ludcmp.h"
-#include "lu.h"
 
 int world_size;
 int rank;
 
-/* Array initialization. */
 static
 void init_array (int n,
 		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
@@ -68,40 +65,6 @@ void print_array(int n,
   }
   POLYBENCH_DUMP_END("x");
   POLYBENCH_DUMP_FINISH;
-}
-
-/* Main computational kernel. The whole function will be timed,
-   including the call and return. */
-static
-void kernel_ludcmp(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n))
-{
-  int i, j, k;
-
-  DATA_TYPE w;
-
-#pragma scop
-  lu(n, &A[0][0]);
-
-  if (rank == 0) {
-    for (i = 0; i < _PB_N; i++) {
-       w = b[i];
-       for (j = 0; j < i; j++)
-          w -= A[i][j] * y[j];
-       y[i] = w;
-    }
-
-     for (i = _PB_N-1; i >=0; i--) {
-       w = y[i];
-       for (j = i+1; j < _PB_N; j++)
-          w -= A[i][j] * x[j];
-       x[i] = w / A[i][i];
-    }
-  }
-#pragma endscop
 }
 
 /* Main computational kernel. The whole function will be timed,
@@ -154,65 +117,54 @@ void kernel_ludcmp_original(int n,
 
 int main(int argc, char** argv)
 {
-  MPI_Init(NULL, NULL);
-
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+  printf("ludcmp\n####\n");
 
   int n0 = (N < (1 << 10)) ? N : (1 << 10);
-
   for (int n = n0; n <= N; n <<= 1) {
-    if (rank == 0) printf("size %d:\n", n);
+    printf("size %d:\n", n);
+
+    /* Variable declaration/allocation. */
+    POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
+    POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
+    POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
+    POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
 
     for (int i = 0; i < N_RUNS; i++) {
-      /* Initialize array(s). */
+    /* Initialize array(s). */
       init_array (n,
-        POLYBENCH_ARRAY(A),
-        POLYBENCH_ARRAY(b),
-        POLYBENCH_ARRAY(x),
-        POLYBENCH_ARRAY(y));
+            POLYBENCH_ARRAY(A),
+            POLYBENCH_ARRAY(b),
+            POLYBENCH_ARRAY(x),
+            POLYBENCH_ARRAY(y));
 
-      MPI_Barrier(MPI_COMM_WORLD);
-
-      if (rank == 0) {
-        /* Start timer. */
-        polybench_start_instruments;
-      }
+      /* Start timer. */
+      polybench_start_instruments;
 
       /* Run kernel. */
-      kernel_ludcmp (n,
+      kernel_ludcmp_original (n,
          POLYBENCH_ARRAY(A),
          POLYBENCH_ARRAY(b),
          POLYBENCH_ARRAY(x),
          POLYBENCH_ARRAY(y));
 
-      if (rank == 0) {
-        /* Stop and print timer. */
-        polybench_stop_instruments;
-        polybench_print_instruments;
+      /* Stop and print timer. */
+      polybench_stop_instruments;
+      polybench_print_instruments;
 
-        /* Prevent dead-code elimination. All live-out data must be printed
-           by the function call in argument. */
-        polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
-      }
+      /* Prevent dead-code elimination. All live-out data must be printed
+         by the function call in argument. */
+      polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+
     }
 
-    if (rank == 0) printf("###\n");
+    /* Be clean. */
+    POLYBENCH_FREE_ARRAY(A);
+    POLYBENCH_FREE_ARRAY(b);
+    POLYBENCH_FREE_ARRAY(x);
+    POLYBENCH_FREE_ARRAY(y);
+
+    printf("###\n");
   }
-
-  /* Be clean. */
-  POLYBENCH_FREE_ARRAY(A);
-  POLYBENCH_FREE_ARRAY(b);
-  POLYBENCH_FREE_ARRAY(x);
-  POLYBENCH_FREE_ARRAY(y);
-
-  MPI_Finalize();
 
   return 0;
 }

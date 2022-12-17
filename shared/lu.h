@@ -32,10 +32,11 @@ void swap(double **a, double **b) {
   *b = tmp;
 }
 
-#define BLOCK_SIZE 4
+#ifndef BLOCK_SIZE
+#define BLOCK_SIZE 64
+#endif
 
-void lu(int n, double *A)
-{
+void lu(int n, double *A) {
 #pragma scop
   int world_size;
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
