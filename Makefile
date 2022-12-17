@@ -1,7 +1,7 @@
 CC=mpicc
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
- 									 -DN_RUNS=10 -DPOLYBENCH_TIME
+ 									 -DN_RUNS=15 -DPOLYBENCH_TIME
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O2 -g -march=native -fopenmp \
 #  									 -DPOLYBENCH_TIME -DN_RUNS=1000

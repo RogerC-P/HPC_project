@@ -106,23 +106,20 @@ void kernel_ludcmp(int n,
   DATA_TYPE w;
 
 #pragma scop
-  // Reuse lu kernel here
-  lu(n, &A[0][0]);
+  lu(_PB_N, POLYBENCH_ARRAY(A));
 
-  if (rank == 0) {
-    for (i = 0; i < _PB_N; i++) {
-       w = b[i];
-       for (j = 0; j < i; j++)
-          w -= A[i][j] * y[j];
-       y[i] = w;
-    }
+  for (i = 0; i < _PB_N; i++) {
+     w = b[i];
+     for (j = 0; j < i; j++)
+        w -= A[i][j] * y[j];
+     y[i] = w;
+  }
 
-     for (i = _PB_N-1; i >=0; i--) {
-       w = y[i];
-       for (j = i+1; j < _PB_N; j++)
-          w -= A[i][j] * x[j];
-       x[i] = w / A[i][i];
-    }
+   for (i = _PB_N-1; i >=0; i--) {
+     w = y[i];
+     for (j = i+1; j < _PB_N; j++)
+        w -= A[i][j] * x[j];
+     x[i] = w / A[i][i];
   }
 #pragma endscop
 }
@@ -177,43 +174,35 @@ void kernel_ludcmp_original(int n,
 
 int main(int argc, char** argv)
 {
-  MPI_Init(NULL, NULL);
+  printf("ludcmp\n####\n");
 
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  for (int n = (1 << 10); n <= N; n <<= 1) {
+    printf("size %d:\n", n);
 
-  /* Retrieve problem size. */
-  int n = N;
+    /* Variable declaration/allocation. */
+    POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
+    POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
+    POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
+    POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
 
-  /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+    for (int i = 0; i < N_RUNS; i++) {
+    /* Initialize array(s). */
+      init_array (n,
+            POLYBENCH_ARRAY(A),
+            POLYBENCH_ARRAY(b),
+            POLYBENCH_ARRAY(x),
+            POLYBENCH_ARRAY(y));
 
-  /* Initialize array(s). */
-  init_array (n,
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(b),
-	      POLYBENCH_ARRAY(x),
-	      POLYBENCH_ARRAY(y));
-
-  for (int i = 0; i < N_RUNS; i++) {
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    if (rank == 0) {
       /* Start timer. */
       polybench_start_instruments;
-    }
 
-    /* Run kernel. */
-    kernel_ludcmp (n,
-       POLYBENCH_ARRAY(A),
-       POLYBENCH_ARRAY(b),
-       POLYBENCH_ARRAY(x),
-       POLYBENCH_ARRAY(y));
+      /* Run kernel. */
+      kernel_ludcmp (n,
+         POLYBENCH_ARRAY(A),
+         POLYBENCH_ARRAY(b),
+         POLYBENCH_ARRAY(x),
+         POLYBENCH_ARRAY(y));
 
-    if (rank == 0) {
       /* Stop and print timer. */
       polybench_stop_instruments;
       polybench_print_instruments;
@@ -221,16 +210,17 @@ int main(int argc, char** argv)
       /* Prevent dead-code elimination. All live-out data must be printed
          by the function call in argument. */
       polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+
     }
+
+    /* Be clean. */
+    POLYBENCH_FREE_ARRAY(A);
+    POLYBENCH_FREE_ARRAY(b);
+    POLYBENCH_FREE_ARRAY(x);
+    POLYBENCH_FREE_ARRAY(y);
+
+    printf("###\n");
   }
-
-  /* Be clean. */
-  POLYBENCH_FREE_ARRAY(A);
-  POLYBENCH_FREE_ARRAY(b);
-  POLYBENCH_FREE_ARRAY(x);
-  POLYBENCH_FREE_ARRAY(y);
-
-  MPI_Finalize();
 
   return 0;
 }
