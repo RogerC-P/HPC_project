@@ -32,10 +32,10 @@ void swap(double **a, double **b) {
   *b = tmp;
 }
 
-#define BLOCK_SIZE 80
+#ifndef BLOCK_SIZE
+#define BLOCK_SIZE 64
+#endif
 
-/* Main computational kernel. The whole function will be timed,
-   including the call and return. */
 void lu(int n, double *A) {
 #pragma scop
 
