@@ -30,7 +30,7 @@
 #  endif
 
 #  ifdef LARGE_DATASET
-#   define N (1 << 12)
+#   define N (1 << 11)
 #  endif
 
 #  ifdef EXTRALARGE_DATASET

@@ -1,150 +1,179 @@
-/**
- * This version is stamped on May 10, 2016
- *
- * Contact:
- *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
- *   Tomofumi Yuki <tomofumi.yuki.fr>
- *
- * Web address: http://polybench.sourceforge.net
- */
-/* gemm.c: this file is part of PolyBench/C */
-
-#include <math.h>
 #include <immintrin.h>
-#include <omp.h>
 
-#define BI 16
-#define BJ 16
-#define BK 16
-
-#define BLOCK_MULT(k_start, k_end) do { \
-  __m256d ab00 = _mm256_set1_pd(0.0); \
-  __m256d ab01 = _mm256_set1_pd(0.0); \
-  __m256d ab02 = _mm256_set1_pd(0.0); \
-  __m256d ab03 = _mm256_set1_pd(0.0); \
- \
-  __m256d ab10 = _mm256_set1_pd(0.0); \
-  __m256d ab11 = _mm256_set1_pd(0.0); \
-  __m256d ab12 = _mm256_set1_pd(0.0); \
-  __m256d ab13 = _mm256_set1_pd(0.0); \
- \
-  for (int w = k_start; w < k_end; w++) { \
-    __m256d a0 = _mm256_set1_pd(A[(u + 0) * lda + w]); \
-    __m256d a1 = _mm256_set1_pd(A[(u + 1) * lda + w]); \
-    __m256d a2 = _mm256_set1_pd(A[(u + 2) * lda + w]); \
-    __m256d a3 = _mm256_set1_pd(A[(u + 3) * lda + w]); \
- \
-    __m256d b0 = _mm256_loadu_pd(&B[w * ldb + v + 0]); \
-    __m256d b1 = _mm256_loadu_pd(&B[w * ldb + v + 4]); \
- \
-    ab00 = _mm256_fmadd_pd(a0, b0, ab00); \
-    ab01 = _mm256_fmadd_pd(a1, b0, ab01); \
-    ab02 = _mm256_fmadd_pd(a2, b0, ab02); \
-    ab03 = _mm256_fmadd_pd(a3, b0, ab03); \
- \
-    ab10 = _mm256_fmadd_pd(a0, b1, ab10); \
-    ab11 = _mm256_fmadd_pd(a1, b1, ab11); \
-    ab12 = _mm256_fmadd_pd(a2, b1, ab12); \
-    ab13 = _mm256_fmadd_pd(a3, b1, ab13); \
-  } \
- \
-  __m256d c00 = _mm256_loadu_pd(&C[(u + 0) * ldc + v + 0]); \
-  __m256d c01 = _mm256_loadu_pd(&C[(u + 1) * ldc + v + 0]); \
-  __m256d c02 = _mm256_loadu_pd(&C[(u + 2) * ldc + v + 0]); \
-  __m256d c03 = _mm256_loadu_pd(&C[(u + 3) * ldc + v + 0]); \
- \
-  __m256d c10 = _mm256_loadu_pd(&C[(u + 0) * ldc + v + 4]); \
-  __m256d c11 = _mm256_loadu_pd(&C[(u + 1) * ldc + v + 4]); \
-  __m256d c12 = _mm256_loadu_pd(&C[(u + 2) * ldc + v + 4]); \
-  __m256d c13 = _mm256_loadu_pd(&C[(u + 3) * ldc + v + 4]); \
- \
-  c00 = _mm256_fmadd_pd(valpha, ab00, c00); \
-  c01 = _mm256_fmadd_pd(valpha, ab01, c01); \
-  c02 = _mm256_fmadd_pd(valpha, ab02, c02); \
-  c03 = _mm256_fmadd_pd(valpha, ab03, c03); \
- \
-  c10 = _mm256_fmadd_pd(valpha, ab10, c10); \
-  c11 = _mm256_fmadd_pd(valpha, ab11, c11); \
-  c12 = _mm256_fmadd_pd(valpha, ab12, c12); \
-  c13 = _mm256_fmadd_pd(valpha, ab13, c13); \
- \
-  _mm256_storeu_pd(&C[(u + 0) * ldc + v + 0], c00); \
-  _mm256_storeu_pd(&C[(u + 1) * ldc + v + 0], c01); \
-  _mm256_storeu_pd(&C[(u + 2) * ldc + v + 0], c02); \
-  _mm256_storeu_pd(&C[(u + 3) * ldc + v + 0], c03); \
- \
-  _mm256_storeu_pd(&C[(u + 0) * ldc + v + 4], c10); \
-  _mm256_storeu_pd(&C[(u + 1) * ldc + v + 4], c11); \
-  _mm256_storeu_pd(&C[(u + 2) * ldc + v + 4], c12); \
-  _mm256_storeu_pd(&C[(u + 3) * ldc + v + 4], c13); \
-} while (0);
-
-#ifdef PARALLEL_GEMM
-void pgemm
-#else
-void gemm
+#ifndef NB
+#define NB 128
 #endif
-    (int m, int n, int k,
-		 double alpha, double *A, int lda,
-     double *B, int ldb,
-		 double beta, double *C, int ldc)
+
+inline __attribute__((always_inline)) void block_mul(double beta, double *C, int ldc) {
+  for (int i = 0; i < NB; i++) {
+    for (int j = 0; j < NB; j++) {
+      C[i * ldc + j] *= beta;
+    }
+  }
+}
+
+#define RI 4
+#define RJ 4
+
+inline __attribute__((always_inline)) void micro_mm(
+    double alpha, double *A, int lda,
+    double *B, int ldb,
+    double *C, int ldc)
 {
   __m256d valpha = _mm256_set1_pd(alpha);
 
-#ifdef PARALLEL_GEMM
-  #pragma omp for
-#endif
-  for (int i = 0; i < m - BI + 1; i += BI) {
-    int j;
-    for (j = 0; j < n - BJ + 1; j += BJ) {
-      for (int u = i; u < i + BI; u++) {
-        for (int v = j; v < j + BJ; v++) {
-          C[u * ldc + v] *= beta;
-        }
-      }
+  __m256d sums[RI][RJ] = {_mm256_set1_pd(0)};
 
-      for (int l = 0; l < k - BK + 1; l += BK) {
-        for (int u = i; u < i + BI; u += 4) {
-          for (int v = j; v < j + BJ; v += 8) {
-            BLOCK_MULT(l, l + BK);
-          }
-        }
-      }
-
-      for (int u = i; u < i + BI; u += 4) {
-        for (int v = j; v < j + BJ; v += 8) {
-          BLOCK_MULT(BK * (k / BK), k);
-        }
-      }
-    }
-
-    for (int j = BJ * (n / BJ); j < n; j++) {
-      for (int u = i; u < i + BI; u++) {
-        C[u * ldc + j] *= beta;
-      }
-
-      for (int l = 0; l < k; l++) {
-        for (int u = i; u < i + BI; u++) {
-          C[u * ldc + j] += alpha * A[u * lda + l] * B[l * ldb + j];
-        }
+  for (int k = 0; k < NB; k++) {
+    for (int j = 0; j < RJ; j++) {
+      __m256d b = _mm256_loadu_pd(&B[k * ldb + j * 4]);
+      for (int i = 0; i < RI; i++) {
+        __m256d a = _mm256_set1_pd(A[i * lda + k]);
+        sums[i][j] = _mm256_fmadd_pd(a, b, sums[i][j]);
       }
     }
   }
 
-#ifdef PARALLEL_GEMM
-  #pragma omp barrier
-#endif
+  for (int i = 0; i < RI; i++) {
+    for (int j = 0; j < RJ; j++) {
+      __m256d c = _mm256_loadu_pd(&C[i * ldc + 4 * j]);
+      c = _mm256_fmadd_pd(valpha, sums[i][j], c);
+      _mm256_storeu_pd(&C[i * ldc + 4 * j], c);
+    }
+  }
+}
 
-#ifdef PARALLEL_GEMM
-  #pragma omp master
-#endif
-  for (int i = BI * (m / BI); i < m; i++) {
-    for (int j = 0; j < n; j++) {
-      C[i * ldc + j] *= beta;
+inline __attribute__((always_inline)) void mini_mm(
+    double alpha, double *A, int lda,
+    double *B, int ldb,
+    double *C, int ldc)
+{
+  for (int i = 0; i < NB - RI + 1; i += RI) {
+    for (int j = 0; j < NB - 4 * RJ + 1; j += 4 * RJ) {
+      micro_mm(alpha, &A[i * lda], lda, &B[j], ldb, &C[i * ldc + j], ldc);
+    }
+  }
+}
 
-      for (int l = 0; l < k; l++) {
-        C[i * ldc + j] += alpha * A[i * lda + l] * B[l * ldb + j];
+void mm(
+    int ni, int nj, int nk,
+    double alpha, double *A, int lda,
+    double *B, int ldb,
+    double beta, double *C, int ldc)
+{
+  #pragma omp for
+  for (int i = 0; i < ni - NB + 1; i += NB) {
+    for (int j = 0; j < nj - NB + 1; j += NB) {
+      block_mul(beta, &C[i * ldc + j], ldc);
+
+      for (int k = 0; k < nk - NB + 1; k += NB) {
+        mini_mm(
+          alpha, &A[i * lda + k], lda,
+          &B[k * ldb + j], ldb,
+          &C[i * ldc + j], ldc
+        );
       }
     }
+  }
+
+  #pragma omp for
+  for (int i = 0; i < ni; i++) {
+    for (int j = NB * (nj / NB); j < nj; j++) {
+      C[i * lda + j] *= beta;
+      for (int k = 0; k < nk; k++) {
+        C[i * ldc + j] += alpha * A[i * lda + k] * B[k * ldb + j];
+      }
+    }
+  }
+
+  #pragma omp for
+  for (int i = NB * (ni / NB); i < ni; i++) {
+    for (int j = 0; j < NB * (nj / NB); j++) {
+      C[i * lda + j] *= beta;
+      for (int k = 0; k < nk; k++) {
+        C[i * ldc + j] += alpha * A[i * lda + k] * B[k * ldb + j];
+      }
+    }
+  }
+}
+
+#define LDA_MULTIPLE 57
+
+void pad_matrix(int ni, int nj, double *A, int lda, double **new_A, int *new_lda) {
+  *new_lda = LDA_MULTIPLE * (nj / LDA_MULTIPLE + 1);
+  *new_A = (double *) malloc(ni * (*new_lda) * sizeof(double));
+
+  if (!new_A) {
+    printf("Ran out of memory :(\n");
+    exit(-1);
+  }
+
+  for (int i = 0; i < ni; i++) {
+    for (int j = 0; j < nj; j++) (*new_A)[i * (*new_lda) + j] = A[i * lda + j];
+  }
+}
+
+void padded_mm(
+    int ni, int nj, int nk,
+    double alpha, double *A, int lda,
+    double *B, int ldb,
+    double beta, double *C, int ldc)
+{
+  double *padded_A;
+  int padded_lda;
+
+  double *padded_B;
+  int padded_ldb;
+
+  double *padded_C;
+  int padded_ldc;
+
+  #pragma omp single \
+    copyprivate(padded_A, padded_lda, padded_B, padded_ldb, padded_C, padded_ldc)
+  {
+    pad_matrix(ni, nk, A, lda, &padded_A, &padded_lda);
+    pad_matrix(nk, nj, B, ldb, &padded_B, &padded_ldb);
+    pad_matrix(ni, nj, C, ldc, &padded_C, &padded_ldc);
+  }
+
+  #pragma omp barrier
+
+  mm(ni, nj, nk,
+      alpha, padded_A, padded_lda,
+      padded_B, padded_ldb,
+      beta, padded_C, padded_ldc);
+
+  #pragma omp barrier
+
+  #pragma omp master
+  {
+    for (int i = 0; i < ni; i++) {
+      for (int j = 0; j < nj; j++) {
+        C[i * ldc + j] = padded_C[i * padded_ldc + j];
+      }
+    }
+
+    free(padded_A);
+    free(padded_B);
+    free(padded_C);
+  }
+}
+
+void gemm(
+    int ni, int nj, int nk,
+    double alpha, double *A, int lda,
+    double *B, int ldb,
+    double beta, double *C, int ldc)
+{
+  if (0 && ni < 512 && nk < 512) {
+    mm(ni, nj, nk,
+        alpha, A, lda,
+        B, ldb,
+        beta, C, ldc);
+  } else {
+    padded_mm(ni, nj, nk,
+        alpha, A, lda,
+        B, ldb,
+        beta, C, ldc);
   }
 }

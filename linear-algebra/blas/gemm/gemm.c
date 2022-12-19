@@ -27,11 +27,11 @@
 /* Array initialization. */
 static
 void init_array(int ni, int nj, int nk,
-		DATA_TYPE *alpha,
-		DATA_TYPE *beta,
-		DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
-		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
-		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
+		double *alpha,
+		double *beta,
+		double *C,
+		double *A,
+		double *B)
 {
   int i, j;
 
@@ -39,21 +39,20 @@ void init_array(int ni, int nj, int nk,
   *beta = 1.2;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nj; j++)
-      C[i][j] = (DATA_TYPE) ((i*j+1) % ni) / ni;
+      C[i * nj + j] = (double) ((i*j+1) % ni) / ni;
   for (i = 0; i < ni; i++)
     for (j = 0; j < nk; j++)
-      A[i][j] = (DATA_TYPE) (i*(j+1) % nk) / nk;
+      A[i * nk + j] = (double) (i*(j+1) % nk) / nk;
   for (i = 0; i < nk; i++)
     for (j = 0; j < nj; j++)
-      B[i][j] = (DATA_TYPE) (i*(j+2) % nj) / nj;
+      B[i * nj + j] = (double) (i*(j+2) % nj) / nj;
 }
 
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static
-void print_array(int ni, int nj,
-		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj))
+void print_array(int ni, int nj, double *C)
 {
   int i, j;
 
@@ -62,7 +61,7 @@ void print_array(int ni, int nj,
   for (i = 0; i < ni; i++)
     for (j = 0; j < nj; j++) {
 	if ((i * ni + j) % 20 == 0) fprintf (POLYBENCH_DUMP_TARGET, "\n");
-	fprintf (POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, C[i][j]);
+	fprintf (POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, C[i * nj + j]);
     }
   POLYBENCH_DUMP_END("C");
   POLYBENCH_DUMP_FINISH;
@@ -72,25 +71,21 @@ void print_array(int ni, int nj,
    including the call and return. */
 static
 void kernel_gemm(int ni, int nj, int nk,
-		 DATA_TYPE alpha,
-		 DATA_TYPE beta,
-		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
-		 DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
-		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
+		 double alpha,
+		 double beta,
+		 double *C, double *A, double *B)
 {
 #pragma scop
   #pragma omp parallel
-  pgemm(ni, nj, nk, alpha, &A[0][0], nk, &B[0][0], nj, beta, &C[0][0], nj);
+  gemm(ni, nj, nk, alpha, A, nk, B, nj, beta, C, nj);
 #pragma endscop
 }
 
 static
 void kernel_gemm_original(int ni, int nj, int nk,
-		 DATA_TYPE alpha,
-		 DATA_TYPE beta,
-		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
-		 DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
-		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
+		 double alpha,
+		 double beta,
+		 double *C, double *A, double *B)
 {
   int i, j, k;
 
@@ -102,12 +97,12 @@ void kernel_gemm_original(int ni, int nj, int nk,
 //B is NKxNJ
 //C is NIxNJ
 #pragma scop
-  for (i = 0; i < _PB_NI; i++) {
-    for (j = 0; j < _PB_NJ; j++)
-	C[i][j] *= beta;
-    for (k = 0; k < _PB_NK; k++) {
-       for (j = 0; j < _PB_NJ; j++)
-	  C[i][j] += alpha * A[i][k] * B[k][j];
+  for (i = 0; i < ni; i++) {
+    for (j = 0; j < nj; j++)
+      C[i * nj + j] *= beta;
+    for (k = 0; k < nk; k++) {
+      for (j = 0; j < nj; j++)
+        C[i * nj + j] += alpha * A[i * nk + k] * B[k * nj + j];
     }
   }
 #pragma endscop
@@ -121,47 +116,48 @@ int main(int argc, char** argv)
   int nj = NJ;
   int nk = NK;
 
-#ifdef POLYBENCH_GFLOPS
-  polybench_program_total_flops = (double) ni * (double) nj * (2 * (double) nk - 1);
-#endif
-
   /* Variable declaration/allocation. */
-  DATA_TYPE alpha;
-  DATA_TYPE beta;
-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE,NI,NJ,ni,nj);
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NK,ni,nk);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NK,NJ,nk,nj);
+  double alpha;
+  double beta;
 
-  /* Initialize array(s). */
-  init_array (ni, nj, nk, &alpha, &beta,
-	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(B));
+  double *A;
+  double *B;
+  double *C;
 
-  for (int i = 0; i < N_RUNS; i++) {
-    /* Start timer. */
-    polybench_start_instruments;
+  int n0 = 1 << 10;
+  for (int n = n0; n <= NI; n <<= 1) {
+    printf("size: %d\n", n);
 
-    /* Run kernel. */
-    kernel_gemm (ni, nj, nk,
-           alpha, beta,
-           POLYBENCH_ARRAY(C),
-           POLYBENCH_ARRAY(A),
-           POLYBENCH_ARRAY(B));
+    A = (double *) malloc(n * n * sizeof(double));
+    B = (double *) malloc(n * n * sizeof(double));
+    C = (double *) malloc(n * n * sizeof(double));
 
-    /* Stop and print timer. */
-    polybench_stop_instruments;
-    polybench_print_instruments;
+    for (int k = 0; k < NUM_RUNS; k++) {
+      /* Initialize array(s). */
+      init_array (n, n, n, &alpha, &beta,
+            C, A, B);
 
-    /* Prevent dead-code elimination. All live-out data must be printed
-       by the function call in argument. */
-    polybench_prevent_dce(print_array(ni, nj,  POLYBENCH_ARRAY(C)));
+      /* Start timer. */
+      polybench_start_instruments;
+
+      /* Run kernel. */
+      kernel_gemm (n, n, n,
+             alpha, beta,
+             C, A, B);
+
+      // /* Stop and print timer. */
+      polybench_stop_instruments;
+      polybench_print_instruments;
+      /* Prevent dead-code elimination. All live-out data must be printed
+         by the function call in argument. */
+      polybench_prevent_dce(print_array(n, n,  C));
+    }
+
+    free(C);
+    free(A);
+    free(B);
   }
 
   /* Be clean. */
-  POLYBENCH_FREE_ARRAY(C);
-  POLYBENCH_FREE_ARRAY(A);
-  POLYBENCH_FREE_ARRAY(B);
-
   return 0;
 }

@@ -13,8 +13,6 @@
 #include <pthread.h>
 
 #include <gemm.h>
-#define PARALLEL_GEMM
-#include <gemm.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -33,7 +31,7 @@ void swap(double **a, double **b) {
 }
 
 #ifndef BLOCK_SIZE
-#define BLOCK_SIZE 64
+#define BLOCK_SIZE 128
 #endif
 
 void lu(int n, double *A) {
@@ -137,16 +135,16 @@ void lu(int n, double *A) {
     int co_k = co(bk);
     int co_n = co(bk + 1);
 
+    if (bk > 0) {
+      gemm(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE,
+            -1, L_p, BLOCK_SIZE,
+            U_p, m - ro_k,
+            1, B + co_k * m + ro_k, m);
+    }
+
     #pragma omp master
     if (row_rank == block_idx || col_rank == block_idx){
       if (row_rank == block_idx && col_rank == block_idx) {
-        if (bk > 0) {
-          gemm(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE,
-                -1, L_p, BLOCK_SIZE,
-                U_p, m - ro_k,
-                1, B + co_k * m + ro_k, m);
-        }
-
         for (int k = ro_k; k < ro_k + BLOCK_SIZE; k++) {
           double B_kk = B[k * m + k];
           for (int i = k + 1; i < co_k + BLOCK_SIZE; i++) B[i * m + k] /= B_kk;
@@ -175,14 +173,14 @@ void lu(int n, double *A) {
 
     if (bk > 0) {
       if (col_rank == block_idx) {
-        pgemm(BLOCK_SIZE, m - ro_n, BLOCK_SIZE,
+        gemm(BLOCK_SIZE, m - ro_n, BLOCK_SIZE,
               -1, L_p, BLOCK_SIZE,
               U_p + (ro_n - ro_k), m - ro_k,
               1, B + co_k * m + ro_n, m);
       }
 
       if (row_rank == block_idx) {
-        pgemm(m - co_n, BLOCK_SIZE, BLOCK_SIZE,
+        gemm(m - co_n, BLOCK_SIZE, BLOCK_SIZE,
               -1, L_p + (co_n - co_k) * BLOCK_SIZE, BLOCK_SIZE,
               U_p, m - ro_k,
               1, B + co_n * m + ro_k, m);
@@ -251,7 +249,7 @@ void lu(int n, double *A) {
     }
 
     if (bk > 0) {
-      pgemm(m - co_n, m - ro_n, BLOCK_SIZE,
+      gemm(m - co_n, m - ro_n, BLOCK_SIZE,
             -1, L_p + (co_n - co_k) * BLOCK_SIZE, BLOCK_SIZE,
             U_p + (ro_n - ro_k), m - ro_k,
             1, B + co_n * m + ro_n, m);
