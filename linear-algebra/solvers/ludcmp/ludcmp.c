@@ -158,17 +158,17 @@ int main(int argc, char** argv)
   double *x;
   double *y;
 
-  int n0 = (N < (1 << 10)) ? N : (1 << 10);
+  int n0 = (N < (1 << 11)) ? N : (1 << 11);
 
   for (int n = n0; n <= N; n <<= 1) {
     if (rank == 0) printf("size %d:\n", n);
 
-    A = (double *) malloc(n * n + sizeof(double));
-    b = (double *) malloc(n + sizeof(double));
-    x = (double *) malloc(n + sizeof(double));
-    y = (double *) malloc(n + sizeof(double));
+    A = (double *) malloc(n * n * sizeof(double));
+    b = (double *) malloc(n * sizeof(double));
+    x = (double *) malloc(n * sizeof(double));
+    y = (double *) malloc(n * sizeof(double));
 
-    for (int i = 0; i < N_RUNS; i++) {
+    for (int i = 0; i < NUM_RUNS; i++) {
       /* Initialize array(s). */
       init_array (n, A, b, x, y);
 

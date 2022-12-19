@@ -135,12 +135,14 @@ void lu(int n, double *A) {
     int co_k = co(bk);
     int co_n = co(bk + 1);
 
-    if (bk > 0) {
+    if (bk > 0 && row_rank == block_idx && col_rank == block_idx) {
       gemm(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE,
             -1, L_p, BLOCK_SIZE,
             U_p, m - ro_k,
             1, B + co_k * m + ro_k, m);
     }
+
+    #pragma omp barrier
 
     #pragma omp master
     if (row_rank == block_idx || col_rank == block_idx){

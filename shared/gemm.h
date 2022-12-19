@@ -165,7 +165,7 @@ void gemm(
     double *B, int ldb,
     double beta, double *C, int ldc)
 {
-  if (0 && ni < 512 && nk < 512) {
+  if (ni < 512 && nk < 512) {
     mm(ni, nj, nk,
         alpha, A, lda,
         B, ldb,

@@ -3,10 +3,10 @@ CC=mpicc
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
 									 -DPOLYBENCH_TIME -DNUM_RUNS=15
 
-# override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O1 -g -march=native -fopenmp \
-# 									 -DPOLYBENCH_TIME -DNUM_RUNS=5
+# override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
+# 									 -DPOLYBENCH_TIME -DNUM_RUNS=5 -fsanitize=address
 
-# override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -fopenmp -DNUM_RUNS=1
+# override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -fopenmp -DNUM_RUNS=1 -DBLOCK_SIZE=4
 
 SHARED = $(wildcard shared/*)
 GEMM = $(wildcard linear-algebra/blas/gemm/*)
