@@ -156,25 +156,31 @@ int main(int argc, char** argv)
   printf("ludcmp\n####\n");
 
   int n0 = (N < (1 << 10)) ? N : (1 << 10);
-  for (int n = n0; n <= N; n <<= 1) {
-    printf("size %d:\n", n);
 
-    /* Variable declaration/allocation. */
-    POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-    POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-    POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-    POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+  /* Variable declaration/allocation. */
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+
+  #pragma omp parallel
+  for (int n = n0; n <= N; n <<= 1) {
+    #pragma omp master
+    printf("size %d:\n", n);
 
     for (int i = 0; i < N_RUNS; i++) {
       /* Initialize array(s). */
-      init_array (n,
-        POLYBENCH_ARRAY(A),
-        POLYBENCH_ARRAY(b),
-        POLYBENCH_ARRAY(x),
-        POLYBENCH_ARRAY(y));
+      #pragma omp master
+      {
+        init_array (n,
+          POLYBENCH_ARRAY(A),
+          POLYBENCH_ARRAY(b),
+          POLYBENCH_ARRAY(x),
+          POLYBENCH_ARRAY(y));
 
-      /* Start timer. */
-      polybench_start_instruments;
+        /* Start timer. */
+        polybench_start_instruments;
+      }
 
       /* Run kernel. */
       kernel_ludcmp (n,
@@ -183,24 +189,29 @@ int main(int argc, char** argv)
          POLYBENCH_ARRAY(x),
          POLYBENCH_ARRAY(y));
 
-      /* Stop and print timer. */
-      polybench_stop_instruments;
-      polybench_print_instruments;
+      #pragma omp master
+      {
+        /* Stop and print timer. */
+        polybench_stop_instruments;
+        polybench_print_instruments;
 
-      /* Prevent dead-code elimination. All live-out data must be printed
-         by the function call in argument. */
-      polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
-
+        /* Prevent dead-code elimination. All live-out data must be printed
+           by the function call in argument. */
+        polybench_prevent_dce(print_array(n, POLYBENCH_ARRAY(x)));
+      }
     }
 
-    /* Be clean. */
-    POLYBENCH_FREE_ARRAY(A);
-    POLYBENCH_FREE_ARRAY(b);
-    POLYBENCH_FREE_ARRAY(x);
-    POLYBENCH_FREE_ARRAY(y);
-
-    printf("###\n");
+    #pragma omp master
+    {
+      printf("###\n");
+    }
   }
+
+  /* Be clean. */
+  POLYBENCH_FREE_ARRAY(A);
+  POLYBENCH_FREE_ARRAY(b);
+  POLYBENCH_FREE_ARRAY(x);
+  POLYBENCH_FREE_ARRAY(y);
 
   return 0;
 }
