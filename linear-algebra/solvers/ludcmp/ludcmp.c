@@ -158,7 +158,7 @@ int main(int argc, char** argv)
   double *x;
   double *y;
 
-  int n0 = (N < (1 << 11)) ? N : (1 << 11);
+  int n0 = (N < (1 << 10)) ? N : (1 << 10);
 
   for (int n = n0; n <= N; n <<= 1) {
     if (rank == 0) printf("size %d:\n", n);
