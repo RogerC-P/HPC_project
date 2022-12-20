@@ -145,8 +145,6 @@ void lu(int n, double *A) {
     int co_k = co(bk);
     int co_n = co(bk + 1);
 
-    #pragma omp barrier
-
     if (bk > 0 && row_rank == block_idx && col_rank == block_idx) {
       gemm(LU_BLOCK_SIZE, LU_BLOCK_SIZE, LU_BLOCK_SIZE,
             -1, L_p, ldl,
@@ -280,6 +278,8 @@ void lu(int n, double *A) {
       swap(&U_p, &U_k);
       swap(&L_p, &L_k);
     }
+
+    #pragma omp barrier
   }
 
   free(q);
