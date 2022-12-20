@@ -15,8 +15,9 @@
 #include <math.h>
 #include <immintrin.h>
 
-#define PARALLEL_GEMM
 #include <gemm.h>
+
+#include <cblas.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -81,6 +82,22 @@ void kernel_gemm(int ni, int nj, int nk,
 #pragma endscop
 }
 
+
+static
+void kernel_gemm_blas(int ni, int nj, int nk,
+		 double alpha,
+		 double beta,
+		 double *C, double *A, double *B)
+{
+#pragma scop
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+              ni, nj, nk,
+              alpha, A, nk,
+              B, nj,
+              beta, C, nj);
+#pragma endscop
+}
+
 static
 void kernel_gemm_original(int ni, int nj, int nk,
 		 double alpha,
@@ -126,6 +143,8 @@ int main(int argc, char** argv)
 
   int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
 
+  openblas_set_num_threads(NUM_THREADS);
+
   for (int n = n0; n <= NI; n <<= 1) {
     printf("size: %d\n", n);
 
@@ -142,7 +161,7 @@ int main(int argc, char** argv)
       polybench_start_instruments;
 
       /* Run kernel. */
-      kernel_gemm (n, n, n,
+      kernel_gemm_blas (n, n, n,
              alpha, beta,
              C, A, B);
 

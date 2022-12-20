@@ -1,7 +1,7 @@
 CC=mpicc
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-									 -DPOLYBENCH_TIME -DNUM_RUNS=5
+									 -DPOLYBENCH_TIME -DNUM_RUNS=5 -DPAD_MATRICES=1 -DNUM_THREADS=$(T)
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
 # 									 -DPOLYBENCH_TIME -DNUM_RUNS=1 -fsanitize=address
@@ -17,7 +17,7 @@ polybench.o: utilities/polybench.c utilities/polybench.h
 	$(CC) $(CFLAGS) -c -I utilities utilities/polybench.c -o $@ 
 
 gemm.o: $(SHARED) $(GEMM)
-	$(CC) $(CFLAGS) -c -I utilities -I shared -I linear-algebra/blas/gemm linear-algebra/blas/gemm/gemm.c -o $@
+	$(CC) $(CFLAGS) -c -I utilities -I shared -I linear-algebra/blas/gemm linear-algebra/blas/gemm/gemm.c -o $@ -lopenblas
 
 lu.o: $(SHARED) $(LU)
 	$(CC) $(CFLAGS) -c -I utilities -I shared -I linear-algebra/solvers/lu linear-algebra/solvers/lu/lu.c -o $@
@@ -29,7 +29,7 @@ ludcmporiginal.o: $(SHARED) $(LUDCMP)
 	$(CC) $(CFLAGS) -c -I utilities -I shared -I linear-algebra/solvers/ludcmp linear-algebra/solvers/ludcmp/ludcmporiginal.c -o $@
 
 gemm: polybench.o gemm.o
-	$(CC) $(CFLAGS) polybench.o gemm.o -o gemm
+	$(CC) $(CFLAGS) polybench.o gemm.o -o gemm -lopenblas
 
 lu: polybench.o lu.o
 	$(CC) $(CFLAGS) polybench.o lu.o -o lu

@@ -167,7 +167,9 @@ void padded_mm(
   }
 }
 
+#ifndef PAD_MATRICES
 #define PAD_MATRICES 0
+#endif
 
 void gemm(
     int ni, int nj, int nk,
