@@ -44,7 +44,7 @@ def time_bench(dataset_sizes, dir):
                 print(msg)
 
 
-def run_impl(impl:str, dataset_size, runs = 5):
+def run_impl(impl:str, dataset_size, runs = 3):
     header = impl.replace(".c", "")
 
     if "mpi" in impl:
@@ -64,15 +64,28 @@ def run_impl(impl:str, dataset_size, runs = 5):
 
     # Compile implementation
     if impl.endswith(".c"):
-        os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -DN_RUNS={runs} -o executable")
+        os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DSIZE_DATASET={dataset_size} -DPOLYBENCH_TIME -o executable")
     
+    outputs = []
+    key = "OMP_NUM_THREADS"
+    numc_cores = os.getenv(key, "X")
+    np = 1
     # Run and get output
-    if "mpi" in impl:
-        np = 2
-        output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
-    else:
-        output = os.popen("./executable 2>&1").read()
-    return float(output)
+    for _ in range(runs):
+        if "mpi" in impl:
+            np = 2
+            output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
+        else:
+            output = os.popen("./executable 2>&1").read()
+        results = {
+            "name": os.path.basename(header),
+            "runtime": float(output),
+            "size": dataset_size,
+            "n_processors": numc_cores,
+            "nodes": np,
+        }
+        outputs.append(results)
+    return outputs
 
 
 def printRed(text): print("\033[91m{}\033[91m" .format(text))
