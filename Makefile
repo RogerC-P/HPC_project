@@ -1,7 +1,7 @@
 CC=mpicc
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-									 -DPOLYBENCH_TIME -DNUM_RUNS=15
+									 -DPOLYBENCH_TIME -DNUM_RUNS=1
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
 # 									 -DPOLYBENCH_TIME -DNUM_RUNS=5 -fsanitize=address

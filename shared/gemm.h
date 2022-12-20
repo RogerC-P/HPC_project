@@ -1,12 +1,12 @@
 #include <immintrin.h>
 
-#ifndef NB
-#define NB 128
+#ifndef GEMM_BLOCK_SIZE
+#define GEMM_BLOCK_SIZE 64
 #endif
 
 inline __attribute__((always_inline)) void block_mul(double beta, double *C, int ldc) {
-  for (int i = 0; i < NB; i++) {
-    for (int j = 0; j < NB; j++) {
+  for (int i = 0; i < GEMM_BLOCK_SIZE; i++) {
+    for (int j = 0; j < GEMM_BLOCK_SIZE; j++) {
       C[i * ldc + j] *= beta;
     }
   }
@@ -24,7 +24,7 @@ inline __attribute__((always_inline)) void micro_mm(
 
   __m256d sums[RI][RJ] = {_mm256_set1_pd(0)};
 
-  for (int k = 0; k < NB; k++) {
+  for (int k = 0; k < GEMM_BLOCK_SIZE; k++) {
     for (int j = 0; j < RJ; j++) {
       __m256d b = _mm256_loadu_pd(&B[k * ldb + j * 4]);
       for (int i = 0; i < RI; i++) {
@@ -48,8 +48,8 @@ inline __attribute__((always_inline)) void mini_mm(
     double *B, int ldb,
     double *C, int ldc)
 {
-  for (int i = 0; i < NB - RI + 1; i += RI) {
-    for (int j = 0; j < NB - 4 * RJ + 1; j += 4 * RJ) {
+  for (int i = 0; i < GEMM_BLOCK_SIZE - RI + 1; i += RI) {
+    for (int j = 0; j < GEMM_BLOCK_SIZE - 4 * RJ + 1; j += 4 * RJ) {
       micro_mm(alpha, &A[i * lda], lda, &B[j], ldb, &C[i * ldc + j], ldc);
     }
   }
@@ -62,11 +62,11 @@ void mm(
     double beta, double *C, int ldc)
 {
   #pragma omp for
-  for (int i = 0; i < ni - NB + 1; i += NB) {
-    for (int j = 0; j < nj - NB + 1; j += NB) {
+  for (int i = 0; i < ni - GEMM_BLOCK_SIZE + 1; i += GEMM_BLOCK_SIZE) {
+    for (int j = 0; j < nj - GEMM_BLOCK_SIZE + 1; j += GEMM_BLOCK_SIZE) {
       block_mul(beta, &C[i * ldc + j], ldc);
 
-      for (int k = 0; k < nk - NB + 1; k += NB) {
+      for (int k = 0; k < nk - GEMM_BLOCK_SIZE + 1; k += GEMM_BLOCK_SIZE) {
         mini_mm(
           alpha, &A[i * lda + k], lda,
           &B[k * ldb + j], ldb,
@@ -78,7 +78,7 @@ void mm(
 
   #pragma omp for
   for (int i = 0; i < ni; i++) {
-    for (int j = NB * (nj / NB); j < nj; j++) {
+    for (int j = GEMM_BLOCK_SIZE * (nj / GEMM_BLOCK_SIZE); j < nj; j++) {
       C[i * lda + j] *= beta;
       for (int k = 0; k < nk; k++) {
         C[i * ldc + j] += alpha * A[i * lda + k] * B[k * ldb + j];
@@ -87,8 +87,8 @@ void mm(
   }
 
   #pragma omp for
-  for (int i = NB * (ni / NB); i < ni; i++) {
-    for (int j = 0; j < NB * (nj / NB); j++) {
+  for (int i = GEMM_BLOCK_SIZE * (ni / GEMM_BLOCK_SIZE); i < ni; i++) {
+    for (int j = 0; j < GEMM_BLOCK_SIZE * (nj / GEMM_BLOCK_SIZE); j++) {
       C[i * lda + j] *= beta;
       for (int k = 0; k < nk; k++) {
         C[i * ldc + j] += alpha * A[i * lda + k] * B[k * ldb + j];
