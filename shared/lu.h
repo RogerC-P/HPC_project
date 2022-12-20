@@ -30,8 +30,10 @@ void swap(double **a, double **b) {
   *b = tmp;
 }
 
+// Have to use power of two block sizes as MPI_Type_create_darray behaves
+// strangely otherwise
 #ifndef LU_BLOCK_SIZE
-#define LU_BLOCK_SIZE 240
+#define LU_BLOCK_SIZE 256
 #endif
 
 #define SMALL_BLOCK_SIZE ((GEMM_BLOCK_SIZE < LU_BLOCK_SIZE) ? GEMM_BLOCK_SIZE : LU_BLOCK_SIZE)
@@ -66,17 +68,21 @@ void lu(int n, double *A) {
   int dist_size;
   MPI_Type_size(dist_types[rank], &dist_size);
 
-  double *B = (double *) malloc(dist_size);
+  double *B_ = (double *) malloc(dist_size);
 
-  if (!B) {
+  if (!B_) {
     printf("Error: Out of memory :(\n");
     exit(-1);
   }
 
   int position = 0;
-  MPI_Pack(A, 1, dist_types[rank], B, dist_size, &position, MPI_COMM_WORLD) ;
+  MPI_Pack(A, 1, dist_types[rank], B_, dist_size, &position, MPI_COMM_WORLD) ;
 
   int m = n / psizes[0];
+
+  double *B;
+  int ldb;
+  pad_matrix(m, m, B_, m, &B, &ldb);
 
   int row_idx = rank / psizes[0];
   int col_idx = rank % psizes[0];
@@ -115,12 +121,14 @@ void lu(int n, double *A) {
 
   int n_blocks = n / LU_BLOCK_SIZE;
 
+  int ldl = LDA_MULTIPLE * (LU_BLOCK_SIZE / LDA_MULTIPLE + 1);
+
   double *U_p = (double *) malloc(LU_BLOCK_SIZE * m * sizeof(double));
-  double *L_p = (double *) malloc(m * LU_BLOCK_SIZE * sizeof(double));
+  double *L_p = (double *) malloc(m * ldl * sizeof(double));
 
   double *LU_k = (double *) malloc(LU_BLOCK_SIZE * LU_BLOCK_SIZE * sizeof(double));
   double *U_k = (double *) malloc(LU_BLOCK_SIZE * m * sizeof(double));
-  double *L_k = (double *) malloc(m * LU_BLOCK_SIZE * sizeof(double));
+  double *L_k = (double *) malloc(m * ldl * sizeof(double));
 
   double *q = (double *) malloc(LU_BLOCK_SIZE * sizeof(double));
 
@@ -141,9 +149,9 @@ void lu(int n, double *A) {
 
     if (bk > 0 && row_rank == block_idx && col_rank == block_idx) {
       gemm(LU_BLOCK_SIZE, LU_BLOCK_SIZE, LU_BLOCK_SIZE,
-            -1, L_p, LU_BLOCK_SIZE,
+            -1, L_p, ldl,
             U_p, m - ro_k,
-            1, B + co_k * m + ro_k, m);
+            1, B + co_k * ldb + ro_k, ldb);
     }
 
     #pragma omp barrier
@@ -152,19 +160,19 @@ void lu(int n, double *A) {
     if (row_rank == block_idx || col_rank == block_idx){
       if (row_rank == block_idx && col_rank == block_idx) {
         for (int k = ro_k; k < ro_k + LU_BLOCK_SIZE; k++) {
-          double B_kk = B[k * m + k];
-          for (int i = k + 1; i < co_k + LU_BLOCK_SIZE; i++) B[i * m + k] /= B_kk;
+          double B_kk = B[k * ldb + k];
+          for (int i = k + 1; i < co_k + LU_BLOCK_SIZE; i++) B[i * ldb + k] /= B_kk;
 
           for (int i = k + 1; i < co_k + LU_BLOCK_SIZE; i++) {
             for (int j = k + 1; j < ro_k + LU_BLOCK_SIZE; j++) {
-              B[i * m + j] -= B[i * m + k] * B[k * m + j];
+              B[i * ldb + j] -= B[i * ldb + k] * B[k * ldb + j];
             }
           }
         }
 
         for (int i = co_k; i < co_k + LU_BLOCK_SIZE; i++) {
           for (int j = ro_k; j < ro_k + LU_BLOCK_SIZE; j++)
-            LU_k[(i - co_k) * LU_BLOCK_SIZE + (j - ro_k)] = B[i * m + j];
+            LU_k[(i - co_k) * LU_BLOCK_SIZE + (j - ro_k)] = B[i * ldb + j];
         }
       }
 
@@ -180,16 +188,16 @@ void lu(int n, double *A) {
     if (bk > 0) {
       if (col_rank == block_idx) {
         gemm(LU_BLOCK_SIZE, m - ro_n, LU_BLOCK_SIZE,
-              -1, L_p, LU_BLOCK_SIZE,
+              -1, L_p, ldl,
               U_p + (ro_n - ro_k), m - ro_k,
-              1, B + co_k * m + ro_n, m);
+              1, B + co_k * ldb + ro_n, ldb);
       }
 
       if (row_rank == block_idx) {
         gemm(m - co_n, LU_BLOCK_SIZE, LU_BLOCK_SIZE,
-              -1, L_p + (co_n - co_k) * LU_BLOCK_SIZE, LU_BLOCK_SIZE,
+              -1, L_p + (co_n - co_k) * ldl, ldl,
               U_p, m - ro_k,
-              1, B + co_n * m + ro_k, m);
+              1, B + co_n * ldb + ro_k, ldb);
       }
     }
 
@@ -207,14 +215,14 @@ void lu(int n, double *A) {
         for (int k = co_k; k < co_k + LU_BLOCK_SIZE; k++) {
           for (int i = k + 1; i < co_k + LU_BLOCK_SIZE; i++) {
             for (int j = u; j < u + SMALL_BLOCK_SIZE; j++) {
-              B[i * m + j] -= LU_k[(i - co_k) * LU_BLOCK_SIZE + (k - co_k)] * B[k * m + j];
+              B[i * ldb + j] -= LU_k[(i - co_k) * LU_BLOCK_SIZE + (k - co_k)] * B[k * ldb + j];
             }
           }
         }
 
         for (int i = co_k; i < co_k + LU_BLOCK_SIZE; i++) {
           for (int j = u; j < u + SMALL_BLOCK_SIZE; j++) {
-            U_k[(i - co_k) * (m - ro_n) + (j - ro_n)] = B[i * m + j];
+            U_k[(i - co_k) * (m - ro_n) + (j - ro_n)] = B[i * ldb + j];
           }
         }
       }
@@ -230,16 +238,16 @@ void lu(int n, double *A) {
       #pragma omp for schedule(static, GEMM_BLOCK_SIZE)
       for (int i = co_n; i < m; i ++) {
         for (int k = ro_k; k < ro_k + LU_BLOCK_SIZE; k++) {
-          B[i * m + k] *= q[k - ro_k];
+          B[i * ldb + k] *= q[k - ro_k];
 
-          double Bik = B[i * m + k];
+          double Bik = B[i * ldb + k];
           for (int j = k + 1; j < ro_k + LU_BLOCK_SIZE; j++) {
-            B[i * m + j] -= Bik * LU_k[(k - ro_k) * LU_BLOCK_SIZE + (j - ro_k)];
+            B[i * ldb + j] -= Bik * LU_k[(k - ro_k) * LU_BLOCK_SIZE + (j - ro_k)];
           }
         }
 
         for (int j = ro_k; j < ro_k + LU_BLOCK_SIZE; j++) {
-          L_k[(i - co_n) * LU_BLOCK_SIZE + (j - ro_k)] = B[i * m + j];
+          L_k[(i - co_n) * ldl + (j - ro_k)] = B[i * ldb + j];
         }
       }
     }
@@ -248,7 +256,7 @@ void lu(int n, double *A) {
 
     #pragma omp master
     {
-      MPI_Ibcast(L_k, (m - co_n) * LU_BLOCK_SIZE, MPI_DOUBLE,
+      MPI_Ibcast(L_k, (m - co_n) * ldl, MPI_DOUBLE,
                  block_idx, row_comm, row_request);
 
       MPI_Ibcast(U_k, LU_BLOCK_SIZE * (m - ro_n), MPI_DOUBLE,
@@ -257,9 +265,9 @@ void lu(int n, double *A) {
 
     if (bk > 0) {
       gemm(m - co_n, m - ro_n, LU_BLOCK_SIZE,
-            -1, L_p + (co_n - co_k) * LU_BLOCK_SIZE, LU_BLOCK_SIZE,
+            -1, L_p + (co_n - co_k) * ldl, ldl,
             U_p + (ro_n - ro_k), m - ro_k,
-            1, B + co_n * m + ro_n, m);
+            1, B + co_n * ldb + ro_n, ldb);
     }
 
     #pragma omp barrier
@@ -276,6 +284,12 @@ void lu(int n, double *A) {
 
   free(q);
 
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < m; j++) {
+      B_[i * m + j] = B[i * ldb + j];
+    }
+  }
+
   MPI_Request *recv_requests;
   if (rank == 0) {
     recv_requests = (MPI_Request *) malloc(world_size * sizeof(MPI_Request));
@@ -286,7 +300,7 @@ void lu(int n, double *A) {
   }
 
   MPI_Request send_request;
-  MPI_Isend(B, dist_size / sizeof(double), MPI_DOUBLE,
+  MPI_Isend(B_, dist_size / sizeof(double), MPI_DOUBLE,
             0, 0, MPI_COMM_WORLD, &send_request);
 
   if (rank == 0) {
@@ -311,6 +325,7 @@ void lu(int n, double *A) {
 
   free(dist_types);
 
+  free(B_);
   free(B);
 
   free(LU_k);

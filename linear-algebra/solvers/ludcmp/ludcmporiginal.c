@@ -103,8 +103,6 @@ void kernel_ludcmp_original(int n,
     }
   }
 
-  print(n, &A[0][0]);
-
   for (i = 0; i < _PB_N; i++) {
      w = b[i];
      for (j = 0; j < i; j++)

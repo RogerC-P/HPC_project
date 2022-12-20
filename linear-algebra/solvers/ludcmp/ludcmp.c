@@ -82,7 +82,6 @@ void kernel_ludcmp(int n,
   lu(n, A);
 
   if (rank == 0) {
-    print(n, A);
     for (i = 0; i < n; i++) {
        w = b[i];
        for (j = 0; j < i; j++)
@@ -170,6 +169,7 @@ int main(int argc, char** argv)
     y = (double *) malloc(n * sizeof(double));
 
     for (int i = 0; i < NUM_RUNS; i++) {
+
       /* Initialize array(s). */
       init_array (n, A, b, x, y);
 

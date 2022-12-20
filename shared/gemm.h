@@ -1,7 +1,7 @@
 #include <immintrin.h>
 
 #ifndef GEMM_BLOCK_SIZE
-#define GEMM_BLOCK_SIZE 60
+#define GEMM_BLOCK_SIZE 64
 #endif
 
 inline __attribute__((always_inline)) void block_mul(double beta, double *C, int ldc) {
@@ -12,8 +12,8 @@ inline __attribute__((always_inline)) void block_mul(double beta, double *C, int
   }
 }
 
-#define RI 3
-#define RJ 5
+#define RI 4
+#define RJ 4
 
 #if GEMM_BLOCK_SIZE % RI != 0
 #error RI needs to divide GEMM_BLOCK_SIZE
@@ -69,7 +69,7 @@ void mm(
     double *B, int ldb,
     double beta, double *C, int ldc)
 {
-  #pragma omp for
+  #pragma omp for schedule(static, 1)
   for (int i = 0; i < ni - GEMM_BLOCK_SIZE + 1; i += GEMM_BLOCK_SIZE) {
     for (int j = 0; j < nj - GEMM_BLOCK_SIZE + 1; j += GEMM_BLOCK_SIZE) {
       block_mul(beta, &C[i * ldc + j], ldc);
@@ -167,7 +167,7 @@ void padded_mm(
   }
 }
 
-#define PAD_LDA 0
+#define PAD_MATRICES 0
 
 void gemm(
     int ni, int nj, int nk,
@@ -175,7 +175,9 @@ void gemm(
     double *B, int ldb,
     double beta, double *C, int ldc)
 {
-  if (!PAD_LDA) {
+  if (ni == 0 || nj == 0 || nk == 0) return;
+
+  if (!PAD_MATRICES) {
     mm(ni, nj, nk,
         alpha, A, lda,
         B, ldb,
