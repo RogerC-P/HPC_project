@@ -143,8 +143,6 @@ int main(int argc, char** argv)
 
   int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
 
-  openblas_set_num_threads(NUM_THREADS);
-
   for (int n = n0; n <= NI; n <<= 1) {
     printf("size: %d\n", n);
 
