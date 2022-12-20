@@ -18,9 +18,9 @@
 # if !defined(NI) && !defined(NJ) && !defined(NK)
 /* Define sample dataset sizes. */
 #  ifdef MINI_DATASET
-#   define NI 40
-#   define NJ 40
-#   define NK 40
+#   define NI 16
+#   define NJ 16
+#   define NK 16
 #  endif
 
 #  ifdef SMALL_DATASET

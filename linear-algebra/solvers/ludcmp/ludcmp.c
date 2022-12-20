@@ -82,6 +82,7 @@ void kernel_ludcmp(int n,
   lu(n, A);
 
   if (rank == 0) {
+    print(n, A);
     for (i = 0; i < n; i++) {
        w = b[i];
        for (j = 0; j < i; j++)

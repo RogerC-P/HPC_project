@@ -1,7 +1,7 @@
 #include <immintrin.h>
 
 #ifndef GEMM_BLOCK_SIZE
-#define GEMM_BLOCK_SIZE 64
+#define GEMM_BLOCK_SIZE 60
 #endif
 
 inline __attribute__((always_inline)) void block_mul(double beta, double *C, int ldc) {
@@ -12,8 +12,16 @@ inline __attribute__((always_inline)) void block_mul(double beta, double *C, int
   }
 }
 
-#define RI 4
-#define RJ 4
+#define RI 3
+#define RJ 5
+
+#if GEMM_BLOCK_SIZE % RI != 0
+#error RI needs to divide GEMM_BLOCK_SIZE
+#endif
+
+#if GEMM_BLOCK_SIZE % (4 * RJ) != 0
+#error 4 * RJ needs to divide GEMM_BLOCK_SIZE
+#endif
 
 inline __attribute__((always_inline)) void micro_mm(
     double alpha, double *A, int lda,
@@ -159,13 +167,15 @@ void padded_mm(
   }
 }
 
+#define PAD_LDA 0
+
 void gemm(
     int ni, int nj, int nk,
     double alpha, double *A, int lda,
     double *B, int ldb,
     double beta, double *C, int ldc)
 {
-  if (ni < 512 && nk < 512) {
+  if (!PAD_LDA) {
     mm(ni, nj, nk,
         alpha, A, lda,
         B, ldb,

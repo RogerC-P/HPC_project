@@ -31,8 +31,10 @@ void swap(double **a, double **b) {
 }
 
 #ifndef LU_BLOCK_SIZE
-#define LU_BLOCK_SIZE 256
+#define LU_BLOCK_SIZE 240
 #endif
+
+#define SMALL_BLOCK_SIZE ((GEMM_BLOCK_SIZE < LU_BLOCK_SIZE) ? GEMM_BLOCK_SIZE : LU_BLOCK_SIZE)
 
 void lu(int n, double *A) {
 #pragma scop
@@ -135,6 +137,8 @@ void lu(int n, double *A) {
     int co_k = co(bk);
     int co_n = co(bk + 1);
 
+    #pragma omp barrier
+
     if (bk > 0 && row_rank == block_idx && col_rank == block_idx) {
       gemm(LU_BLOCK_SIZE, LU_BLOCK_SIZE, LU_BLOCK_SIZE,
             -1, L_p, LU_BLOCK_SIZE,
@@ -195,19 +199,21 @@ void lu(int n, double *A) {
       if (col_rank == block_idx) MPI_Wait(row_request, MPI_STATUS_IGNORE);
     }
 
+    #pragma omp barrier
+
     if (col_rank == block_idx) {
       #pragma omp for
-      for (int u = ro_n; u < m - GEMM_BLOCK_SIZE + 1; u += GEMM_BLOCK_SIZE) {
+      for (int u = ro_n; u < m - SMALL_BLOCK_SIZE + 1; u += SMALL_BLOCK_SIZE) {
         for (int k = co_k; k < co_k + LU_BLOCK_SIZE; k++) {
           for (int i = k + 1; i < co_k + LU_BLOCK_SIZE; i++) {
-            for (int j = u; j < u + GEMM_BLOCK_SIZE; j++) {
+            for (int j = u; j < u + SMALL_BLOCK_SIZE; j++) {
               B[i * m + j] -= LU_k[(i - co_k) * LU_BLOCK_SIZE + (k - co_k)] * B[k * m + j];
             }
           }
         }
 
         for (int i = co_k; i < co_k + LU_BLOCK_SIZE; i++) {
-          for (int j = u; j < u + LU_BLOCK_SIZE; j++) {
+          for (int j = u; j < u + SMALL_BLOCK_SIZE; j++) {
             U_k[(i - co_k) * (m - ro_n) + (j - ro_n)] = B[i * m + j];
           }
         }
@@ -236,10 +242,9 @@ void lu(int n, double *A) {
           L_k[(i - co_n) * LU_BLOCK_SIZE + (j - ro_k)] = B[i * m + j];
         }
       }
-
-      #pragma omp barrier
     }
 
+    #pragma omp barrier
 
     #pragma omp master
     {
@@ -256,6 +261,8 @@ void lu(int n, double *A) {
             U_p + (ro_n - ro_k), m - ro_k,
             1, B + co_n * m + ro_n, m);
     }
+
+    #pragma omp barrier
 
     #pragma omp master
     {

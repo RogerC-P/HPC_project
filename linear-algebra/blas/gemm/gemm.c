@@ -124,7 +124,8 @@ int main(int argc, char** argv)
   double *B;
   double *C;
 
-  int n0 = 1 << 10;
+  int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
+
   for (int n = n0; n <= NI; n <<= 1) {
     printf("size: %d\n", n);
 

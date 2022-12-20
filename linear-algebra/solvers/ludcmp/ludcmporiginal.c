@@ -20,8 +20,13 @@
 /* Include benchmark-specific header. */
 #include "ludcmp.h"
 
-int world_size;
-int rank;
+void print(int n, double *A) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) printf("%.2lf ", A[i * n + j]);
+    printf("\n");
+  }
+}
+
 
 static
 void init_array (int n,
@@ -97,6 +102,8 @@ void kernel_ludcmp_original(int n,
        A[i][j] = w;
     }
   }
+
+  print(n, &A[0][0]);
 
   for (i = 0; i < _PB_N; i++) {
      w = b[i];
