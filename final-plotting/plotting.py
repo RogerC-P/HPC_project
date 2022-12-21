@@ -16,10 +16,11 @@ def fig1():
     else:
         plt.figure(figsize=(8, 6)) 
 
-    single_threaded = ["ludcmp-blas", "ludcmp", "ludcmp-blocking"]
+    single_threaded = ["ludcmp", "ludcmp-blocking"]
     unused = ["ludcmp", "ludcmp-blocking"]
     num_cores = [1,2,4,8,16,32]
 
+    df = df[df["size"] == 4096]
     df = df.groupby("name")
     for [name, group] in df:
         if name not in unused:
@@ -31,6 +32,7 @@ def fig1():
 
     plt.legend(loc="upper center")
     plt.xscale("log", base=2)
+    plt.yscale("log", base=2)
     plt.xticks(num_cores)
     plt.xlabel("Number of Cores")
     plt.ylabel("Runtime [s]")
@@ -45,10 +47,11 @@ def fig2():
     else:
         plt.figure(figsize=(8, 6))
 
-    unused = []
+    unused = ["ludcmp-blocking", "ludcmp-blocking-openmp", "ludcmp-blocking-openmp-fma-mpi"]
     num_cores = [2**x for x in range(10, 15)]
     
 
+    df = df[df["n_processors"] == 16]
     df = df.groupby("name")
     for [name, group] in df:
         if name not in unused:
