@@ -19,13 +19,13 @@ def fig1():
         plt.figure(figsize=(8, 6)) 
 
     single_threaded = ["ludcmp", "ludcmp-blocking"]
-    unused = ["ludcmp", "ludcmp-blocking"]
+    exclude = ["ludcmp", "ludcmp-blocking"]
     num_cores = [1,2,4,8,16,32]
 
     df = df[df["size"] == 4096]
     df = df.groupby("name")
     for [name, group] in df:
-        if name not in unused:
+        if name not in exclude:
             if name not in single_threaded:
                 df = group.groupby("n_processors")
                 plt.errorbar(df.groups.keys(), df["runtime"].mean(), yerr=df["runtime"].std(), ls='dashed', marker="D", label=name)
@@ -50,13 +50,13 @@ def fig4():
         plt.figure(figsize=(8, 6)) 
 
     single_threaded = ["ludcmp", "ludcmp-blocking"]
-    unused = ["ludcmp", "ludcmp-blas", "ludcmp-blocking", "ludcmp-blocking-openmp", "ludcmp-blocking-openmp-fma-mpi"]
+    exclude = ["ludcmp", "ludcmp-blas", "ludcmp-blocking", "ludcmp-blocking-openmp", "ludcmp-blocking-openmp-fma-mpi"]
     num_cores = [1,2,4,8,16,32]
 
     df = df[df["size"] == 4096]
     df = df.groupby("name")
     for [name, group] in df:
-        if name not in unused:
+        if name not in exclude:
             if name not in single_threaded:
                 df = group.groupby("n_processors")
 
@@ -91,14 +91,14 @@ def fig2():
     else:
         plt.figure(figsize=(8, 6))
 
-    unused = ["ludcmp-blocking", "ludcmp-blocking-openmp", "ludcmp-blocking-openmp-fma-mpi"]
+    exclude = ["ludcmp-blocking", "ludcmp-blocking-openmp", "ludcmp-blocking-openmp-fma-mpi"]
     num_cores = [2**x for x in range(10, 15)]
     
 
     df = df[df["n_processors"] == 16]
     df = df.groupby("name")
     for [name, group] in df:
-        if name not in unused:
+        if name not in exclude:
             df = group.groupby("size")
             plt.errorbar(df.groups.keys(), df["runtime"].mean(), yerr=df["runtime"].std(), ls='solid', marker="D", label=name)
            
@@ -120,14 +120,14 @@ def fig2():
     else:
         plt.figure(figsize=(8, 6))
 
-    unused = ["ludcmp", "ludcmp-blocking", "ludcmp-blocking-openmp", "ludcmp-blocking-openmp-fma-mpi"]
+    exclude = ["ludcmp", "ludcmp-blocking", "ludcmp-blocking-openmp", "ludcmp-blocking-openmp-fma-mpi"]
     num_cores = [2**x for x in range(10, 15)]
     
 
     df = df[df["n_processors"] == 16]
     df = df.groupby("name")
     for [name, group] in df:
-        if name not in unused:
+        if name not in exclude:
             df = group.groupby("size")
             plt.errorbar(df.groups.keys(), df["runtime"].mean(), yerr=df["runtime"].std(), ls='dashed', marker="D", label=name)
            
@@ -150,14 +150,14 @@ def fig3():
     else:
         plt.figure(figsize=(8, 6))
 
-    unused = ["ludcmp-mpi-2", "ludcmp-blas"]
+    exclude = ["ludcmp-mpi-2", "ludcmp-blas"]
     num_cores = [2**x for x in range(10, 15)]
     
 
     df = df[df["n_processors"] == 16]
     df = df.groupby("name")
     for [name, group] in df:
-        if name not in unused:
+        if name not in exclude:
             df = group.groupby("size")
             plt.errorbar(df.groups.keys(), df["runtime"].mean(), yerr=df["runtime"].std(), ls='dashed', marker="D", label=name)
            
