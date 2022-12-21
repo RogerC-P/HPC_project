@@ -33,7 +33,7 @@ void swap(double **a, double **b) {
 // Have to use power of two block sizes as MPI_Type_create_darray behaves
 // strangely otherwise
 #ifndef LU_BLOCK_SIZE
-#define LU_BLOCK_SIZE 256
+#define LU_BLOCK_SIZE 128
 #endif
 
 #define SMALL_BLOCK_SIZE ((GEMM_BLOCK_SIZE < LU_BLOCK_SIZE) ? GEMM_BLOCK_SIZE : LU_BLOCK_SIZE)
@@ -233,7 +233,7 @@ void lu(int n, double *A) {
 
       #pragma omp barrier
 
-      #pragma omp for schedule(static, GEMM_BLOCK_SIZE)
+      #pragma omp for schedule(static, SMALL_BLOCK_SIZE)
       for (int i = co_n; i < m; i ++) {
         for (int k = ro_k; k < ro_k + LU_BLOCK_SIZE; k++) {
           B[i * ldb + k] *= q[k - ro_k];
@@ -285,9 +285,7 @@ void lu(int n, double *A) {
   free(q);
 
   for (int i = 0; i < m; i++) {
-    for (int j = 0; j < m; j++) {
-      B_[i * m + j] = B[i * ldb + j];
-    }
+    memcpy(&B_[i * m], &B[i * ldb], m * sizeof(double));
   }
 
   MPI_Request *recv_requests;

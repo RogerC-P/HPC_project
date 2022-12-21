@@ -117,7 +117,7 @@ void pad_matrix(int ni, int nj, double *A, int lda, double **new_A, int *new_lda
   }
 
   for (int i = 0; i < ni; i++) {
-    for (int j = 0; j < nj; j++) (*new_A)[i * (*new_lda) + j] = A[i * lda + j];
+    memcpy(&(*new_A)[i * (*new_lda)], &A[i * lda], lda * sizeof(double));
   }
 }
 
