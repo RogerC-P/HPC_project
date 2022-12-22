@@ -71,9 +71,9 @@ def fig4():
 
                 plt.plot(df.groups.keys(), speedup, ls='dashed', marker="D", label=name)
     
-    plt.plot(num_cores, num_cores, ls="solid", label="Ideal Speedup")
+    plt.plot(num_cores, num_cores, ls="solid", label="Ideal Linear Bound")
 
-    plt.legend(loc="upper center")
+    plt.legend(loc="upper left")
     plt.xscale("log", base=2)
     plt.yscale("log", base=2)
     plt.xticks(num_cores)
@@ -150,7 +150,7 @@ def fig3():
     else:
         plt.figure(figsize=(8, 6))
 
-    exclude = ["ludcmp-mpi-2", "ludcmp-blas"]
+    exclude = ["ludcmp-mpi-final"]
     num_cores = [2**x for x in range(10, 15)]
     
 
