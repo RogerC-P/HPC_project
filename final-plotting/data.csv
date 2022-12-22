@@ -157,8 +157,6 @@ ludcmp-blas,0.0397,1024,16,1
 ludcmp-blas,0.269603,2048,16,1
 ludcmp-blas,0.269303,2048,16,1
 ludcmp-blas,0.268931,2048,16,1
-ludcmp-blas,10.611685,2048,16,1
-ludcmp-blas,10.689936,2048,16,1
 ludcmp-blas,1.663486,4096,16,1
 ludcmp-blas,1.627545,4096,16,1
 ludcmp-blas,1.608921,4096,16,1
@@ -539,3 +537,9 @@ ludcmp-mpi-final,41.455598,16384,8,4
 ludcmp-mpi-final,40.065856,16384,8,4
 ludcmp-mpi-final,40.887909,16384,8,4
 ludcmp-mpi-final,41.101146,16384,8,4
+ludcmp-blas,10.530518,8192,16,1
+ludcmp-blocking-openmp-fma-mpi,171.882822,8192,16,2
+ludcmp-blocking-openmp-fma,9.266982,8192,16,1
+ludcmp-blocking-openmp,17.481765,8192,16,1
+ludcmp-blocking,243.136129,8192,16,1
+ludcmp,1385.93006,8192,16,1
