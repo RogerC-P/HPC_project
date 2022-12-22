@@ -1,23 +1,22 @@
 import os
 import csv
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import pandas as pd
 from timeImpls import printGreen, printOrange, printRed, run_impl
 
 from helper import get_files
 
-def saveResults(results, dataset_sizes, implementations, save_dir):
-    data = {}
-    for i, result in enumerate(results):
-        data[implementations[i]] = result
-    data['dataset_sizes'] = dataset_sizes
-    df = pd.DataFrame(data)
+def saveResults(results, save_dir):
     path_dir = os.path.join(save_dir, 'plotting')
-    path_file = os.path.join(path_dir, 'cyclesResults.csv')
+    path_file = os.path.join(path_dir, 'cyclesResults_2pow3.csv')
     if not os.path.exists(path_dir):
         os.makedirs(path_dir)
-    df.to_csv(path_file, index=False)
+    
+    with open(path_file, 'r') as file:
+        file.write('name,runtime,size,n_processors,nodes')
+        for result in results:
+            file.write(f"{result['name']},{result['runtime']},{result['size']},{result['n_processors']},{result['nodes']}")
 
 def loadResults(load_dir):
     path = os.path.join(load_dir, 'plotting', 'cyclesResults.csv')
@@ -127,19 +126,16 @@ def runPlotter(dir, dataset_sizes, runs):
 
         for i, impl in enumerate(implementations, start=1):
             print(f'\033[93mRound {i} of {len(implementations)}\033[0m')
-            dataset_results = []
             for dataset_size in dataset_sizes:
                 print(f'\033[94m{impl} with {dataset_size}\033[0m')
-                seconds = run_impl(impl, dataset_size, runs=runs)
-                if seconds != None:
-                    dataset_results.append(seconds)
-            results.append(dataset_results)
+                result = run_impl(impl, dataset_size, runs=runs)
+                results += result
 
-        saveResults(results, dataset_sizes, implementations, dir)
+        saveResults(results, dir)
 
-        plotResults(results, dataset_sizes, implementations, dir, True)
-        plotResults(results, dataset_sizes, implementations, dir, False)
-        printSpeedup(results, dataset_sizes, implementations, files["base"])
+        #plotResults(results, dataset_sizes, implementations, dir, True)
+        #plotResults(results, dataset_sizes, implementations, dir, False)
+        #printSpeedup(results, dataset_sizes, implementations, files["base"])
         
         """     
         try:
@@ -151,6 +147,6 @@ if __name__ == "__main__":
     path_gemm = "./linear-algebra/blas/gemm"
     path_ludcmp = "./linear-algebra/solvers/ludcmp"
 
-    dataset_sizes = [2**i for i in range(3,6)]
+    dataset_sizes = [2**13]
 
-    runPlotter(path_ludcmp, dataset_sizes, runs=5)
+    runPlotter(path_ludcmp, dataset_sizes, runs=3)
