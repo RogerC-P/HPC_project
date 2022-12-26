@@ -12,5 +12,6 @@ module load netlib-lapack/3.9.1
 module load openblas/0.3.20
 module load openmpi/4.1.4
 export OMP_NUM_THREADS=16
+export OPENBLAS_NUM_THREADS=16
 
 python3 scripts/plotting.py
