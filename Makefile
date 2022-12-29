@@ -60,6 +60,7 @@ openmp_job: $(benchmark)
 	mkdir -p results
 	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-mkl-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
+				--mem-per-cpu=4G \
 				--constraint=$(CPU) \
 				--wrap="./$(benchmark)"
 
