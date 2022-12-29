@@ -2,7 +2,7 @@ CC=icc
 
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-									 -DPOLYBENCH_TIME -DNUM_RUNS=10 -I OpenBLAS
+									 -DPOLYBENCH_TIME -DNUM_RUNS=2 -I OpenBLAS
 
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
@@ -55,7 +55,7 @@ check: ludcmp ludcmporiginal
 
 openmp_job: $(benchmark)
 	mkdir -p results
-	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-blas-$(T)-1-$(T)" --open-mode=truncate \
+	export OMP_NUM_THREADS=$(T); OPENBLAS_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-blas-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
 				--mem-per-cpu=4G \
 				--constraint=$(CPU) \
