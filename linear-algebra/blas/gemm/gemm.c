@@ -15,7 +15,7 @@
 #include <math.h>
 #include <immintrin.h>
 
-#include <mkl.h>
+#include <cblas.h>
 
 /* Include polybench common header. */
 #include <polybench.h>

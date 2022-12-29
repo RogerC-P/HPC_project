@@ -36,7 +36,7 @@
 #  endif
 
 #  ifdef LARGE_DATASET
-#   define NI (1 << 14)
+#   define NI (1 << 12)
 #   define NJ NI
 #   define NK NI
 #  endif

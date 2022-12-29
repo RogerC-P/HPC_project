@@ -1,11 +1,8 @@
-CC=mpicc
+CC=icc
 
-
-MKLFLAGS=-m64 -I"${MKLROOT}/include"
-LINK_MKL=-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_blacs_openmpi_lp64.a -Wl,--end-group -lgomp -lpthread -lm -ldl
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-									 -DPOLYBENCH_TIME -DNUM_RUNS=10 $(MKLFLAGS)
+									 -DPOLYBENCH_TIME -DNUM_RUNS=10 -I OpenBLAS
 
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
@@ -34,13 +31,13 @@ ludcmporiginal.o: $(SHARED) $(LUDCMP)
 	$(CC) $(CFLAGS) -c -I utilities -I shared -I linear-algebra/solvers/ludcmp linear-algebra/solvers/ludcmp/ludcmporiginal.c -o $@
 
 gemm: polybench.o gemm.o
-	$(CC) $(CFLAGS) polybench.o gemm.o $(LINK_MKL) -o gemm
+	$(CC) $(CFLAGS) polybench.o gemm.o OpenBLAS/libopenblas.a -o gemm
 
 lu: polybench.o lu.o
 	$(CC) $(CFLAGS) polybench.o lu.o -o lu
 
 ludcmp: polybench.o ludcmp.o
-	$(CC) $(CFLAGS) polybench.o ludcmp.o $(LINK_MKL) -o ludcmp
+	$(CC) $(CFLAGS) polybench.o ludcmp.o OpenBLAS/libopenblas.a -o ludcmp
 
 ludcmporiginal: polybench.o ludcmporiginal.o
 	$(CC) $(CFLAGS) polybench.o ludcmporiginal.o -o ludcmporiginal
@@ -58,7 +55,7 @@ check: ludcmp ludcmporiginal
 
 openmp_job: $(benchmark)
 	mkdir -p results
-	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-mkl-$(T)-1-$(T)" --open-mode=truncate \
+	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-blas-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
 				--mem-per-cpu=4G \
 				--constraint=$(CPU) \
