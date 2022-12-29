@@ -14,13 +14,13 @@
 #include <string.h>
 #include <math.h>
 #include <mpi.h>
+#include <mkl.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
 
-/* Include benchmark-specific header. */
 #include "ludcmp.h"
-#include "lu.h"
+
 
 int world_size;
 int rank;
@@ -79,23 +79,10 @@ void kernel_ludcmp(int n,
   double w;
 
 #pragma scop
-  lu(n, A);
-
-  if (rank == 0) {
-    for (i = 0; i < n; i++) {
-       w = b[i];
-       for (j = 0; j < i; j++)
-          w -= A[i * n + j] * y[j];
-       y[i] = w;
-    }
-
-     for (i = n-1; i >=0; i--) {
-       w = y[i];
-       for (j = i+1; j < n; j++)
-          w -= A[i * n + j] * x[j];
-       x[i] = w / A[i * n + i];
-    }
-  }
+	int ipiv[n];
+ 	LAPACKE_dgetrf(CblasRowMajor, n, n, (double *) A, n, ipiv);
+  LAPACKE_dgetrs(CblasRowMajor, 'N', n, 1, (const double *) A, n, ipiv, b, 1);  
+  memcpy(x, b, n * sizeof(double));
 #pragma endscop
 }
 

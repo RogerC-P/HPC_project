@@ -15,8 +15,7 @@
 #include <math.h>
 #include <immintrin.h>
 
-#define PARALLEL_GEMM
-#include <gemm.h>
+#include <mkl.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -77,36 +76,8 @@ void kernel_gemm(int ni, int nj, int nk,
 {
 #pragma scop
   #pragma omp parallel
-  gemm(ni, nj, nk, alpha, A, nk, B, nj, beta, C, nj);
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, ni, nj, nk, alpha, A, nk, B, nj, beta, C, nj);
 #pragma endscop
-}
-
-static
-void kernel_gemm_original(int ni, int nj, int nk,
-		 double alpha,
-		 double beta,
-		 double *C, double *A, double *B)
-{
-  int i, j, k;
-
-//BLAS PARAMS
-//TRANSA = 'N'
-//TRANSB = 'N'
-// => Form C := alpha*A*B + beta*C,
-//A is NIxNK
-//B is NKxNJ
-//C is NIxNJ
-#pragma scop
-  for (i = 0; i < ni; i++) {
-    for (j = 0; j < nj; j++)
-      C[i * nj + j] *= beta;
-    for (k = 0; k < nk; k++) {
-      for (j = 0; j < nj; j++)
-        C[i * nj + j] += alpha * A[i * nk + k] * B[k * nj + j];
-    }
-  }
-#pragma endscop
-
 }
 
 int main(int argc, char** argv)
