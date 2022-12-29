@@ -75,7 +75,6 @@ void kernel_gemm(int ni, int nj, int nk,
 		 double *C, double *A, double *B)
 {
 #pragma scop
-  #pragma omp parallel
   cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, ni, nj, nk, alpha, A, nk, B, nj, beta, C, nj);
 #pragma endscop
 }
