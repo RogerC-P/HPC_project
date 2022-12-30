@@ -109,56 +109,61 @@ void kernel_gemm_original(int ni, int nj, int nk,
 
 }
 
+void benchmark(int argc, char** argv, int n) {
+  printf("size: %d\n", n);
+  
+  double alpha, beta;
+  double *A = (double *) malloc(n * n * sizeof(double));
+  double *B = (double *) malloc(n * n * sizeof(double));
+  double *C = (double *) malloc(n * n * sizeof(double));
+  
+  for (int k = 0; k < NUM_RUNS; k++) {
+    /* Initialize array(s). */
+    init_array (n, n, n, &alpha, &beta,
+        C, A, B);
+    
+    /* Start timer. */
+    polybench_start_instruments;
+    
+    /* Run kernel. */
+    kernel_gemm (n, n, n,
+         alpha, beta,
+         C, A, B);
+    
+    // /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+    /* Prevent dead-code elimination. All live-out data must be printed
+     by the function call in argument. */
+    polybench_prevent_dce(print_array(n, n,  C));
+  }
+  
+  free(C);
+  free(A);
+  free(B);
+}
+
 int main(int argc, char** argv)
 {
-  /* Retrieve problem size. */
-  int ni = NI;
-  int nj = NJ;
-  int nk = NK;
-
-  /* Variable declaration/allocation. */
-  double alpha;
-  double beta;
-
-  double *A;
-  double *B;
-  double *C;
-
-  int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
-
-  for (int n = n0; n <= NI; n <<= 1) {
-    printf("size: %d\n", n);
-
-    A = (double *) malloc(n * n * sizeof(double));
-    B = (double *) malloc(n * n * sizeof(double));
-    C = (double *) malloc(n * n * sizeof(double));
-
-    for (int k = 0; k < NUM_RUNS; k++) {
-      /* Initialize array(s). */
-      init_array (n, n, n, &alpha, &beta,
-            C, A, B);
-
-      /* Start timer. */
-      polybench_start_instruments;
-
-      /* Run kernel. */
-      kernel_gemm (n, n, n,
-             alpha, beta,
-             C, A, B);
-
-      // /* Stop and print timer. */
-      polybench_stop_instruments;
-      polybench_print_instruments;
-      /* Prevent dead-code elimination. All live-out data must be printed
-         by the function call in argument. */
-      polybench_prevent_dce(print_array(n, n,  C));
-    }
-
-    free(C);
-    free(A);
-    free(B);
+  // Weak scaling
+  int p = NUM_PROCESSORS;
+  int i = 0;
+  while (p > 1) {
+    p /= 2;
+    i += 1;
   }
+
+  int ns[6] = { 4096, 6300, 7938, 10000, 12600, 15874 };
+  benchmark(argc, argv, ns[i]);
+
+#ifdef STRONG_SCALING
+  int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
+  for (int n = n0; n <= NI; n <<= 1) {
+    benchmark(argc, argv, n);
+  }
+#endif
 
   /* Be clean. */
   return 0;
 }
+

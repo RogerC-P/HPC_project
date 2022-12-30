@@ -1,7 +1,7 @@
 #include <immintrin.h>
 
 #ifndef GEMM_BLOCK_SIZE
-#define GEMM_BLOCK_SIZE 64
+#define GEMM_BLOCK_SIZE 256
 #endif
 
 inline __attribute__((always_inline)) void block_mul(double beta, double *C, int ldc) {
@@ -167,7 +167,6 @@ void padded_mm(
   }
 }
 
-#define PAD_MATRICES 0
 
 void gemm(
     int ni, int nj, int nk,
@@ -177,15 +176,15 @@ void gemm(
 {
   if (ni == 0 || nj == 0 || nk == 0) return;
 
-  if (!PAD_MATRICES) {
+#ifndef PAD_MATRICES
     mm(ni, nj, nk,
         alpha, A, lda,
         B, ldb,
         beta, C, ldc);
-  } else {
+#else
     padded_mm(ni, nj, nk,
         alpha, A, lda,
         B, ldb,
         beta, C, ldc);
-  }
+#endif
 }

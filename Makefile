@@ -1,7 +1,11 @@
-CC=mpicc
+CC=gcc
+
+N = 1
+M = 1
+T = 1
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-									 -DPOLYBENCH_TIME -DNUM_RUNS=5
+		-DPOLYBENCH_TIME -DNUM_RUNS=15 -DPAD_MATRICES=1 -DNUM_PROCESSORS=$(N)
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
 # 									 -DPOLYBENCH_TIME -DNUM_RUNS=1 -fsanitize=address
@@ -41,10 +45,6 @@ ludcmporiginal: polybench.o ludcmporiginal.o
 	$(CC) $(CFLAGS) polybench.o ludcmporiginal.o -o ludcmporiginal
 
 CPU = EPYC_7763
-
-N = 1
-M = 1
-T = 1
 
 check: ludcmp ludcmporiginal
 	./ludcmp 2> mine > /dev/null
