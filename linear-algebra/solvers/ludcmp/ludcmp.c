@@ -13,7 +13,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
-#include <mpi.h>
 #include <mkl.h>
 
 /* Include polybench common header. */
@@ -134,11 +133,6 @@ void kernel_ludcmp_original(int n,
 
 int main(int argc, char** argv)
 {
-  MPI_Init(NULL, NULL);
-
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
   /* Variable declaration/allocation. */
   double *A;
   double *b;
@@ -148,7 +142,7 @@ int main(int argc, char** argv)
   int n0 = (N < (1 << 10)) ? N : (1 << 10);
 
   for (int n = n0; n <= N; n <<= 1) {
-    if (rank == 0) printf("size %d:\n", n);
+    printf("size %d:\n", n);
 
     A = (double *) malloc(n * n * sizeof(double));
     b = (double *) malloc(n * sizeof(double));
@@ -160,18 +154,13 @@ int main(int argc, char** argv)
       /* Initialize array(s). */
       init_array (n, A, b, x, y);
 
-      MPI_Barrier(MPI_COMM_WORLD);
-
-      if (rank == 0) {
         /* Start timer. */
         polybench_start_instruments;
-      }
 
       /* Run kernel. */
       kernel_ludcmp (n, A, b, x, y);
 
 
-      if (rank == 0) {
         /* Stop and print timer. */
         polybench_stop_instruments;
         polybench_print_instruments;
@@ -179,10 +168,9 @@ int main(int argc, char** argv)
         /* Prevent dead-code elimination. All live-out data must be printed
            by the function call in argument. */
         polybench_prevent_dce(print_array(n, x));
-      }
     }
 
-    if (rank == 0) printf("###\n");
+    printf("###\n");
 
     /* Be clean. */
     free(A);
@@ -190,8 +178,6 @@ int main(int argc, char** argv)
     free(x);
     free(y);
   }
-
-  MPI_Finalize();
 
   return 0;
 }
