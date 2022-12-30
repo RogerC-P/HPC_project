@@ -13,8 +13,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
-#include <mpi.h>
-#include <mkl.h>
+#include <cblas.h>
 
 /* Include polybench common header. */
 #include <polybench.h>
@@ -132,66 +131,58 @@ void kernel_ludcmp_original(int n,
 
 }
 
+void benchmark(int argc, char** argv, int n) {
+  printf("size: %d\n", n);
+  
+  double *A = (double *) malloc(n * n * sizeof(double));
+  double *b = (double *) malloc(n * sizeof(double));
+  double *x = (double *) malloc(n * sizeof(double));
+  double *y = (double *) malloc(n * sizeof(double));
+  
+  for (int k = 0; k < NUM_RUNS; k++) {
+    /* Initialize array(s). */
+    init_array (n, A, b, x, y);
+    
+    /* Start timer. */
+    polybench_start_instruments;
+    
+    /* Run kernel. */
+    kernel_ludcmp (n, A, b, x, y);
+    
+    // /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+    /* Prevent dead-code elimination. All live-out data must be printed
+     by the function call in argument. */
+    polybench_prevent_dce(print_array(n, x));
+  }
+  
+  free(A);
+  free(b);
+  free(x);
+  free(y);
+}
+
 int main(int argc, char** argv)
 {
-  MPI_Init(NULL, NULL);
-
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-  /* Variable declaration/allocation. */
-  double *A;
-  double *b;
-  double *x;
-  double *y;
-
-  int n0 = (N < (1 << 10)) ? N : (1 << 10);
-
-  for (int n = n0; n <= N; n <<= 1) {
-    if (rank == 0) printf("size %d:\n", n);
-
-    A = (double *) malloc(n * n * sizeof(double));
-    b = (double *) malloc(n * sizeof(double));
-    x = (double *) malloc(n * sizeof(double));
-    y = (double *) malloc(n * sizeof(double));
-
-    for (int i = 0; i < NUM_RUNS; i++) {
-
-      /* Initialize array(s). */
-      init_array (n, A, b, x, y);
-
-      MPI_Barrier(MPI_COMM_WORLD);
-
-      if (rank == 0) {
-        /* Start timer. */
-        polybench_start_instruments;
-      }
-
-      /* Run kernel. */
-      kernel_ludcmp (n, A, b, x, y);
-
-
-      if (rank == 0) {
-        /* Stop and print timer. */
-        polybench_stop_instruments;
-        polybench_print_instruments;
-
-        /* Prevent dead-code elimination. All live-out data must be printed
-           by the function call in argument. */
-        polybench_prevent_dce(print_array(n, x));
-      }
-    }
-
-    if (rank == 0) printf("###\n");
-
-    /* Be clean. */
-    free(A);
-    free(b);
-    free(x);
-    free(y);
+  // Weak scaling
+  int p = NUM_PROCESSORS;
+  int i = 0;
+  while (p > 1) {
+    p /= 2;
+    i += 1;
   }
 
-  MPI_Finalize();
+  int ns[6] = {5000, 6300, 7938, 10000, 12600, 15874 };
+  benchmark(argc, argv, ns[i]);
 
+#ifdef STRONG_SCALING
+  int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
+  for (int n = n0; n <= NI; n <<= 1) {
+    benchmark(argc, argv, n);
+  }
+#endif
+
+  /* Be clean. */
   return 0;
 }
