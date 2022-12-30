@@ -1,8 +1,11 @@
 CC=icc
 
+N = 1
+M = 1
+T = 1
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-									 -DPOLYBENCH_TIME -DNUM_RUNS=2 -I OpenBLAS
+	-DPOLYBENCH_TIME -DNUM_RUNS=15 -DNUM_PROCESSORS=$(N)
 
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
@@ -44,10 +47,6 @@ ludcmporiginal: polybench.o ludcmporiginal.o
 
 CPU = EPYC_7763
 
-N = 1
-M = 1
-T = 1
-
 check: ludcmp ludcmporiginal
 	./ludcmp 2> mine > /dev/null
 	./ludcmporiginal 2> original > /dev/null
@@ -55,9 +54,9 @@ check: ludcmp ludcmporiginal
 
 openmp_job: $(benchmark)
 	mkdir -p results
-	export OMP_NUM_THREADS=$(T); OPENBLAS_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-blas-$(T)-1-$(T)" --open-mode=truncate \
+	export OMP_NUM_THREADS=$(T); sbatch --output="weak_scaling/$(benchmark)-blas-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
-				--mem-per-cpu=4G \
+				--mem-per-cpu=2G \
 				--constraint=$(CPU) \
 				--wrap="./$(benchmark)"
 
