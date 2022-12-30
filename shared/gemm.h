@@ -1,12 +1,12 @@
 #include <immintrin.h>
 
 #ifndef GEMM_BLOCK_SIZE
-#define GEMM_BLOCK_SIZE 256
+#define GEMM_BLOCK_SIZE 64
 #endif
 
-inline __attribute__((always_inline)) void block_mul(double beta, double *C, int ldc) {
-  for (int i = 0; i < GEMM_BLOCK_SIZE; i++) {
-    for (int j = 0; j < GEMM_BLOCK_SIZE; j++) {
+inline __attribute__((always_inline)) void block_mul(int ni, int nj, double beta, double *C, int ldc) {
+  for (int i = 0; i < ni; i++) {
+    for (int j = 0; j < nj; j++) {
       C[i * ldc + j] *= beta;
     }
   }
@@ -24,6 +24,7 @@ inline __attribute__((always_inline)) void block_mul(double beta, double *C, int
 #endif
 
 inline __attribute__((always_inline)) void micro_mm(
+    int nk,
     double alpha, double *A, int lda,
     double *B, int ldb,
     double *C, int ldc)
@@ -32,7 +33,7 @@ inline __attribute__((always_inline)) void micro_mm(
 
   __m256d sums[RI][RJ] = {_mm256_set1_pd(0)};
 
-  for (int k = 0; k < GEMM_BLOCK_SIZE; k++) {
+  for (int k = 0; k < nk; k++) {
     for (int j = 0; j < RJ; j++) {
       __m256d b = _mm256_loadu_pd(&B[k * ldb + j * 4]);
       for (int i = 0; i < RI; i++) {
@@ -51,16 +52,34 @@ inline __attribute__((always_inline)) void micro_mm(
   }
 }
 
-inline __attribute__((always_inline)) void mini_mm(
+inline __attribute__((always_inline)) void fast_mini_mm(
+    int nk,
     double alpha, double *A, int lda,
     double *B, int ldb,
     double *C, int ldc)
 {
   for (int i = 0; i < GEMM_BLOCK_SIZE - RI + 1; i += RI) {
     for (int j = 0; j < GEMM_BLOCK_SIZE - 4 * RJ + 1; j += 4 * RJ) {
-      micro_mm(alpha, &A[i * lda], lda, &B[j], ldb, &C[i * ldc + j], ldc);
+      micro_mm(nk, alpha, &A[i * lda], lda, &B[j], ldb, &C[i * ldc + j], ldc);
     }
   }
+}
+
+inline __attribute ((always_inline)) void mini_mm(
+    int ni, int nj, int nk,
+    double alpha, double *A, int lda,
+    double *B, int ldb,
+    double *C, int ldc)
+{
+	for (int i = 0; i < ni; i++) {
+		for (int j = 0; j < nj; j++) {
+			double sum = 0;
+			for (int k = 0; k < nk; k++) {
+				sum += A[i * lda + k] * B[k * ldb + j];
+			}
+			C[i * ldc + j] += alpha * sum;
+		}
+	}
 }
 
 void mm(
@@ -72,37 +91,99 @@ void mm(
   #pragma omp for schedule(static, 1)
   for (int i = 0; i < ni - GEMM_BLOCK_SIZE + 1; i += GEMM_BLOCK_SIZE) {
     for (int j = 0; j < nj - GEMM_BLOCK_SIZE + 1; j += GEMM_BLOCK_SIZE) {
-      block_mul(beta, &C[i * ldc + j], ldc);
+      block_mul(GEMM_BLOCK_SIZE, GEMM_BLOCK_SIZE, beta, &C[i * ldc + j], ldc);
 
-      for (int k = 0; k < nk - GEMM_BLOCK_SIZE + 1; k += GEMM_BLOCK_SIZE) {
-        mini_mm(
+      int k = 0;
+      for (; k < nk - GEMM_BLOCK_SIZE + 1; k += GEMM_BLOCK_SIZE) {
+        fast_mini_mm(
+	  			GEMM_BLOCK_SIZE,
           alpha, &A[i * lda + k], lda,
           &B[k * ldb + j], ldb,
           &C[i * ldc + j], ldc
         );
       }
+
+      fast_mini_mm(
+        nk - k,
+        alpha, &A[i * lda + k], lda,
+        &B[k * ldb + j], ldb,
+        &C[i * ldc + j], ldc
+      );
     }
   }
 
   #pragma omp for
-  for (int i = 0; i < ni; i++) {
-    for (int j = GEMM_BLOCK_SIZE * (nj / GEMM_BLOCK_SIZE); j < nj; j++) {
-      C[i * lda + j] *= beta;
-      for (int k = 0; k < nk; k++) {
-        C[i * ldc + j] += alpha * A[i * lda + k] * B[k * ldb + j];
-      }
-    }
+  for (int i = 0; i < GEMM_BLOCK_SIZE * (ni / GEMM_BLOCK_SIZE); i += GEMM_BLOCK_SIZE) {
+		int j = GEMM_BLOCK_SIZE * (nj / GEMM_BLOCK_SIZE);
+
+		block_mul(GEMM_BLOCK_SIZE, nj - j, beta, &C[i * ldc + j], ldc);
+
+		int k = 0;
+		for (; k < nk - GEMM_BLOCK_SIZE + 1; k += GEMM_BLOCK_SIZE) {
+			mini_mm(
+				GEMM_BLOCK_SIZE, nj - j, GEMM_BLOCK_SIZE,
+				alpha, &A[i * lda + k], lda,
+				&B[k * ldb + j], ldb,
+				&C[i * ldc + j], ldc
+			);
+		}
+
+		mini_mm(
+			GEMM_BLOCK_SIZE, nj - j, nk - k,
+			alpha, &A[i * lda + k], lda,
+			&B[k * ldb + j], ldb,
+			&C[i * ldc + j], ldc
+		);
   }
 
   #pragma omp for
-  for (int i = GEMM_BLOCK_SIZE * (ni / GEMM_BLOCK_SIZE); i < ni; i++) {
-    for (int j = 0; j < GEMM_BLOCK_SIZE * (nj / GEMM_BLOCK_SIZE); j++) {
-      C[i * lda + j] *= beta;
-      for (int k = 0; k < nk; k++) {
-        C[i * ldc + j] += alpha * A[i * lda + k] * B[k * ldb + j];
-      }
-    }
+  for (int j = 0; j < GEMM_BLOCK_SIZE * (nj / GEMM_BLOCK_SIZE); j += GEMM_BLOCK_SIZE) {
+		int i = GEMM_BLOCK_SIZE * (ni / GEMM_BLOCK_SIZE);
+
+		block_mul(ni - i, GEMM_BLOCK_SIZE, beta, &C[i * ldc + j], ldc);
+
+		int k = 0;
+		for (; k < nk - GEMM_BLOCK_SIZE + 1; k += GEMM_BLOCK_SIZE) {
+			mini_mm(
+				ni - i, GEMM_BLOCK_SIZE, GEMM_BLOCK_SIZE,
+				alpha, &A[i * lda + k], lda,
+				&B[k * ldb + j], ldb,
+				&C[i * ldc + j], ldc
+			);
+		}
+
+		mini_mm(
+			ni - i, GEMM_BLOCK_SIZE, nk - k,
+			alpha, &A[i * lda + k], lda,
+			&B[k * ldb + j], ldb,
+			&C[i * ldc + j], ldc
+		);
   }
+	
+	#pragma omp single
+	{
+		int i = GEMM_BLOCK_SIZE * (ni / GEMM_BLOCK_SIZE);
+		int j = GEMM_BLOCK_SIZE * (nj / GEMM_BLOCK_SIZE);
+
+		block_mul(ni - i, nj - j, beta, &C[i * ldc + j], ldc);
+
+		int k = 0;
+		for (; k < nk - GEMM_BLOCK_SIZE + 1; k += GEMM_BLOCK_SIZE) {
+			mini_mm(
+				ni - i, nj - j, GEMM_BLOCK_SIZE,
+				alpha, &A[i * lda + k], lda,
+				&B[k * ldb + j], ldb,
+				&C[i * ldc + j], ldc
+			);
+		}
+
+		mini_mm(
+			ni - i, nj - j, nk - k,
+			alpha, &A[i * lda + k], lda,
+			&B[k * ldb + j], ldb,
+			&C[i * ldc + j], ldc
+		);
+	}
 }
 
 #define LDA_MULTIPLE 57
