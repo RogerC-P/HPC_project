@@ -8,7 +8,7 @@ override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp
 		-DPOLYBENCH_TIME -DNUM_RUNS=15 -DPAD_MATRICES=1 -DNUM_PROCESSORS=$(N)
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
-# 									 -DPOLYBENCH_TIME -DNUM_RUNS=1 -fsanitize=address
+# 		-DPOLYBENCH_TIME -DNUM_RUNS=1 -fsanitize=address -DNUM_PROCESSORS=$(N)
 
 # override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -fopenmp -DNUM_RUNS=1 -DLU_BLOCK_SIZE=4
 
@@ -55,6 +55,7 @@ openmp_job: $(benchmark)
 	mkdir -p results
 	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
+				--mem-per-cpu=2G \
 				--constraint=$(CPU) \
 				--wrap="./$(benchmark)"
 

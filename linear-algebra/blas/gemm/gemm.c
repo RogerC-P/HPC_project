@@ -153,7 +153,7 @@ int main(int argc, char** argv)
     i += 1;
   }
 
-  int ns[6] = { 4096, 6300, 7938, 10000, 12600, 15874 };
+  int ns[6] = {5000, 6300, 7938, 10000, 12600, 15874 };
   benchmark(argc, argv, ns[i]);
 
 #ifdef STRONG_SCALING
