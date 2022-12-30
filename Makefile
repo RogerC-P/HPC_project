@@ -8,7 +8,7 @@ MKLFLAGS=-m64 -I"${MKLROOT}/include"
 LINK_MKL=-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_blacs_openmpi_lp64.a -Wl,--end-group -lgomp -lpthread -lm -ldl
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-	-DPOLYBENCH_TIME -DNUM_RUNS=10 -DNUM_PROCESSORS=$(N) $(MKLFLAGS)
+	-DPOLYBENCH_TIME -DNUM_RUNS=15 -DNUM_PROCESSORS=$(N) $(MKLFLAGS)
 
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
@@ -59,7 +59,7 @@ openmp_job: $(benchmark)
 	mkdir -p results
 	export OMP_NUM_THREADS=$(T); sbatch --output="weak_scaling/$(benchmark)-mkl-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
-				--mem-per-cpu=4G \
+				--mem-per-cpu=2G \
 				--constraint=$(CPU) \
 				--wrap="./$(benchmark)"
 
