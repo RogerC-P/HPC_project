@@ -70,21 +70,18 @@ void lu(int n, double *A) {
   int dist_size;
   MPI_Type_size(dist_types[rank], &dist_size);
 
-  double *B_ = (double *) malloc(dist_size);
+  double *B = (double *) malloc(dist_size);
 
-  if (!B_) {
+  if (!B) {
     printf("Error: Out of memory :(\n");
     exit(-1);
   }
 
   int position = 0;
-  MPI_Pack(A, 1, dist_types[rank], B_, dist_size, &position, MPI_COMM_WORLD) ;
+  MPI_Pack(A, 1, dist_types[rank], B, dist_size, &position, MPI_COMM_WORLD) ;
 
   int m = n / psizes[0];
-
-  double *B = B_;
   int ldb = m;
-  // pad_matrix(m, m, B_, m, &B, &ldb);
 
   int row_idx = rank / psizes[0];
   int col_idx = rank % psizes[0];
@@ -121,7 +118,6 @@ void lu(int n, double *A) {
 
   int n_blocks = n / LU_BLOCK_SIZE;
 
-  // int ldl = LDA_MULTIPLE * (LU_BLOCK_SIZE / LDA_MULTIPLE + 1);
   int ldl = LU_BLOCK_SIZE;
 
   double *U_p = (double *) malloc(LU_BLOCK_SIZE * m * sizeof(double));
@@ -285,10 +281,6 @@ void lu(int n, double *A) {
 
   free(q);
 
-  // for (int i = 0; i < m; i++) {
-  //   memcpy(&B_[i * m], &B[i * ldb], m * sizeof(double));
-  // }
-
   MPI_Request *recv_requests;
   if (rank == 0) {
     recv_requests = (MPI_Request *) malloc(world_size * sizeof(MPI_Request));
@@ -299,7 +291,7 @@ void lu(int n, double *A) {
   }
 
   MPI_Request send_request;
-  MPI_Isend(B_, dist_size / sizeof(double), MPI_DOUBLE,
+  MPI_Isend(B, dist_size / sizeof(double), MPI_DOUBLE,
             0, 0, MPI_COMM_WORLD, &send_request);
 
   if (rank == 0) {
@@ -311,8 +303,27 @@ void lu(int n, double *A) {
 
   if (rank == 0) {
     for (int k = 0; k < n; k++) {
-      for (int i = 0; i < n; i++) {
+      for (int i = k + 1; i < n; i++) {
         for (int j = n; j < n_old; j++) {
+          A[i * n_old + j] -= A[i * n_old + k] * A[k * n_old + j];
+        }
+      }
+    }
+
+    for (int k = 0; k < n; k++) {
+      for (int i = n; i < n_old; i++) {
+        A[i * n_old + k] /= A[k * n_old + k];
+        for (int j = 0; j < n; j++) {
+          A[i * n_old + j] -= A[i * n_old + k] * A[k * n_old + j];
+        }
+      }
+    }
+
+    for (int k = n; k < n_old; k++) {
+      for (int i = k + 1; i < n_old; i++) {
+        A[i * n_old + k] /= A[k * n_old + k];
+        for (int j = k + 1; j < n_old; j++) {
+          A[i * n_old + j] -= A[i * n_old + k] * A[k * n_old + j];
         }
       }
     }
@@ -320,8 +331,7 @@ void lu(int n, double *A) {
 
   free(dist_types);
 
-  free(B_);
-  // free(B);
+  free(B);
 
   free(LU_k);
   free(U_k);
