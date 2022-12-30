@@ -1,11 +1,11 @@
-CC=gcc
+CC=mpicc
 
 N = 1
 M = 1
 T = 1
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-		-DPOLYBENCH_TIME -DNUM_RUNS=15 -DPAD_MATRICES=1 -DNUM_PROCESSORS=$(N)
+		-DPOLYBENCH_TIME -DNUM_RUNS=15 -DNUM_PROCESSORS=$(N)
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
 # 		-DPOLYBENCH_TIME -DNUM_RUNS=1 -fsanitize=address -DNUM_PROCESSORS=$(N)
@@ -53,7 +53,7 @@ check: ludcmp ludcmporiginal
 
 openmp_job: $(benchmark)
 	mkdir -p results
-	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(T)-1-$(T)" --open-mode=truncate \
+	export OMP_NUM_THREADS=$(T); sbatch --output="weak_scaling/$(benchmark)-$(T)-1-$(T)" --open-mode=truncate \
 				--ntasks=1 --cpus-per-task=$(T) \
 				--mem-per-cpu=2G \
 				--constraint=$(CPU) \
@@ -65,9 +65,9 @@ mpi_cmd = mpirun -n $(M) --map-by node:PE=$(T) $(benchmark)
 
 mpi_job: $(benchmark)
 	mkdir -p results
-	export OMP_NUM_THREADS=$(T); sbatch --output="results/$(benchmark)-$(N)-$(M)-$(T)" \
+	export OMP_NUM_THREADS=$(T); sbatch --output="weak_scaling/$(benchmark)-$(N)-$(M)-$(T)" \
 				--ntasks=$(N) --ntasks-per-node=$(T) \
-				--mem-per-cpu=4G \
+				--mem-per-cpu=2G \
 				--constraint=$(CPU) \
 				--wrap="unset LSB_AFFINITY_HOSTFILE; $(mpi_cmd)"
 

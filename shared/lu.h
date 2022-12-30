@@ -33,7 +33,7 @@ void swap(double **a, double **b) {
 // Have to use power of two block sizes as MPI_Type_create_darray behaves
 // strangely otherwise
 #ifndef LU_BLOCK_SIZE
-#define LU_BLOCK_SIZE 128
+#define LU_BLOCK_SIZE (4 * GEMM_BLOCK_SIZE)
 #endif
 
 #define SMALL_BLOCK_SIZE ((GEMM_BLOCK_SIZE < LU_BLOCK_SIZE) ? GEMM_BLOCK_SIZE : LU_BLOCK_SIZE)
@@ -49,8 +49,10 @@ void lu(int n, double *A) {
   int psizes[2] = {0, 0};
   MPI_Dims_create(world_size, 2, psizes);
 
+  int chunk_size = LU_BLOCK_SIZE * psizes[0];
+
   int n_old = n;
-  n = LU_BLOCK_SIZE * (n / LU_BLOCK_SIZE);
+  n = chunk_size * (n / chunk_size);
 
   MPI_Datatype *dist_types = (MPI_Datatype *) malloc(world_size * sizeof(MPI_Datatype));
 
@@ -80,9 +82,9 @@ void lu(int n, double *A) {
 
   int m = n / psizes[0];
 
-  double *B;
-  int ldb;
-  pad_matrix(m, m, B_, m, &B, &ldb);
+  double *B = B_;
+  int ldb = m;
+  // pad_matrix(m, m, B_, m, &B, &ldb);
 
   int row_idx = rank / psizes[0];
   int col_idx = rank % psizes[0];
@@ -98,8 +100,6 @@ void lu(int n, double *A) {
 
   int col_rank;
   MPI_Comm_rank(col_comm, &col_rank);
-
-  int chunk_size = LU_BLOCK_SIZE * psizes[0];
 
   int ro(int bk) {
     int chunk_idx = bk / psizes[0];
@@ -121,7 +121,8 @@ void lu(int n, double *A) {
 
   int n_blocks = n / LU_BLOCK_SIZE;
 
-  int ldl = LDA_MULTIPLE * (LU_BLOCK_SIZE / LDA_MULTIPLE + 1);
+  // int ldl = LDA_MULTIPLE * (LU_BLOCK_SIZE / LDA_MULTIPLE + 1);
+  int ldl = LU_BLOCK_SIZE;
 
   double *U_p = (double *) malloc(LU_BLOCK_SIZE * m * sizeof(double));
   double *L_p = (double *) malloc(m * ldl * sizeof(double));
@@ -284,9 +285,9 @@ void lu(int n, double *A) {
 
   free(q);
 
-  for (int i = 0; i < m; i++) {
-    memcpy(&B_[i * m], &B[i * ldb], m * sizeof(double));
-  }
+  // for (int i = 0; i < m; i++) {
+  //   memcpy(&B_[i * m], &B[i * ldb], m * sizeof(double));
+  // }
 
   MPI_Request *recv_requests;
   if (rank == 0) {
@@ -309,13 +310,9 @@ void lu(int n, double *A) {
   MPI_Wait(&send_request, MPI_STATUS_IGNORE);
 
   if (rank == 0) {
-    for (int k = n; k < n_old; k++) {
-      double A_kk = A[k * n + k];
-      for (int i = k + 1; i < n; i++) A[i * n + k] /= A_kk;
-
-      for (int i = k + 1; i < n; i++) {
-        for (int j = k + 1; j < n; j++) {
-          A[i * n + j] -= A[i * n + k] * A[k * n + j];
+    for (int k = 0; k < n; k++) {
+      for (int i = 0; i < n; i++) {
+        for (int j = n; j < n_old; j++) {
         }
       }
     }
@@ -324,7 +321,7 @@ void lu(int n, double *A) {
   free(dist_types);
 
   free(B_);
-  free(B);
+  // free(B);
 
   free(LU_k);
   free(U_k);
