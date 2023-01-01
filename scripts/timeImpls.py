@@ -5,7 +5,7 @@ from helper import get_files
 
 def main():
     #dataset_sizes = [2**i for i in range(6, 12)]
-    dataset_sizes = [2048]
+    dataset_sizes = [2048*4]
 
     time_benches(dataset_sizes, "./linear-algebra/solvers/ludcmp")
 
@@ -22,29 +22,29 @@ def time_bench(dataset_sizes, dir):
     optimizations = files["opt"]
 
     for dataset_size in dataset_sizes:
-        print(f"Running for dataset size {dataset_size}")
+        #print(f"Running for dataset size {dataset_size}")
 
-        print("{}".format(os.path.basename(base)), end =" ... ", flush=True)
-        base_result = run_impl(base, dataset_size)
-        print("{} seconds".format(base_result))
+        #print("{}".format(os.path.basename(base)), end =" ... ", flush=True)
+        #base_result = run_impl(base, dataset_size)
+        #print("{} seconds".format(base_result))
 
         for other_impl in optimizations:
             print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
             other_result = run_impl(other_impl, dataset_size)
 
             #percentage_improvement = round((other_result - base_result) / base_result * 100)
-            speedup = round(base_result / other_result)
-            msg = "{} seconds ({}x speedup)".format(other_result, speedup)
+            #speedup = round(base_result / other_result)
+            #msg = "{} seconds ({}x speedup)".format(other_result, speedup)
 
-            if other_result < base_result:
-                printGreen(msg)
-            elif other_result > base_result:
-                printRed(msg)
-            else:
-                print(msg)
+            # if other_result < base_result:
+            #     printGreen(msg)
+            # elif other_result > base_result:
+            #     printRed(msg)
+            # else:
+            #     print(msg)
 
 
-def run_impl(impl:str, dataset_size, runs = 3):
+def run_impl(impl:str, dataset_size, runs = 1):
     header = impl.replace(".c", "")
 
     if "mpi" in impl:
@@ -59,6 +59,9 @@ def run_impl(impl:str, dataset_size, runs = 3):
         flags.append("-fopenmp")
     if "blas" in impl:
         flags.append("-mfma -fopenmp -I /usr/include/openblas -lopenblas")
+    if "mkl" in impl:
+        # See: https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html#gs.m666gf
+        flags.append(' -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl  -DMKL_ILP64  -m64  -I"${MKLROOT}/include')
 
     joined_flags = " ".join(flags)
 
@@ -84,6 +87,7 @@ def run_impl(impl:str, dataset_size, runs = 3):
             "n_processors": numc_cores,
             "nodes": np,
         }
+        print(results)
         outputs.append(results)
     return outputs
 
