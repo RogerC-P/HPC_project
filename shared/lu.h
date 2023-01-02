@@ -37,7 +37,7 @@ int min(int a, int b) {
 
 
 #ifndef LU_BLOCK_SIZE
-#define LU_BLOCK_SIZE (4)
+#define LU_BLOCK_SIZE (3 * GEMM_BLOCK_SIZE)
 #endif
 
 int compute_axis_size(int n, int psize, int idx) {
@@ -188,12 +188,7 @@ void lu(int n, double *A) {
             LU_k[(i - co_k) * LU_BLOCK_SIZE + (j - ro_k)] = B[i * ldb + j];
         }
       }
-    }
 
-		// if (bk == n_blocks - 1) break;
-
-    #pragma omp master
-    if (row_rank == block_idx || col_rank == block_idx){
       if (row_rank == block_idx) {
         MPI_Ibcast(LU_k, LU_BLOCK_SIZE * LU_BLOCK_SIZE, MPI_DOUBLE, block_idx, col_comm, col_request);
       }

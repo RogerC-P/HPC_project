@@ -5,7 +5,8 @@ M = 1
 T = 1
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-		-DPOLYBENCH_TIME -DNUM_RUNS=1 -DNUM_PROCESSORS=$(N)
+		-DPOLYBENCH_TIME -DNUM_RUNS=1 -DNUM_PROCESSORS=$(N) \
+		-DWEAK_SCALING -DSTRONG_SCALING
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
 # 		-DPOLYBENCH_TIME -DNUM_RUNS=1 -fsanitize=address -DNUM_PROCESSORS=$(N)

@@ -207,13 +207,17 @@ int main(int argc, char** argv)
 
 #ifdef CHECK
 	for (int i = 4; i < 1000; i++) benchmark(argc, argv, i);
-#elif (defined STRONG_SCALING)
-  int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
-  for (int n = n0; n <= NI; n <<= 1) {
+#endif
+
+#ifdef STRONG_SCALING
+  int n0 = (N < (1 << 10)) ? N : (1 << 10);
+  for (int n = n0; n <= N; n <<= 1) {
     benchmark(argc, argv, n);
     if (rank == 0) printf("###\n");
   }
-#else // Weak scaling
+#endif
+
+#ifdef WEAK_SCALING
   int p = NUM_PROCESSORS;
   int i = 0;
   while (p > 1) {
@@ -221,7 +225,7 @@ int main(int argc, char** argv)
     i += 1;
   }
 
-  int ns[6] = {5000, 6300, 7938, 10000, 12600, 15874 };
+  int ns[6] = {5000, 6300, 7938, 10000, 12600, 15874};
   benchmark(argc, argv, ns[i]);
 #endif
 
