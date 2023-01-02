@@ -112,7 +112,7 @@ void kernel_ludcmp_original(int n,
 
 #pragma scop
   for (i = 0; i < n; i++) {
-    for (j = 0; j <i; j++) {
+    for (j = 0; j < i; j++) {
        w = A[i * n + j];
        for (k = 0; k < j; k++) {
           w -= A[i * n + k] * A[k * n + j];
@@ -161,10 +161,10 @@ void benchmark(int argc, char** argv, int n) {
     
     /* Start timer. */
     if (rank == 0) polybench_start_instruments;
-    
+
     /* Run kernel. */
     kernel_ludcmp (n, A, b, x, y);
-    
+
     // /* Stop and print timer. */
     if (rank == 0) {
       polybench_stop_instruments;
@@ -174,6 +174,23 @@ void benchmark(int argc, char** argv, int n) {
       polybench_prevent_dce(print_array(n, x));
     }
   }
+
+	MPI_Barrier(MPI_COMM_WORLD);
+
+#ifdef CHECK
+	if (rank == 0) {
+		double *x_ours = malloc(n * sizeof(double));
+		memcpy(x_ours, x, n * sizeof(double));
+
+		init_array (n, A, b, x, y);
+		kernel_ludcmp_original (n, A, b, x, y);
+
+		double err = 0;
+		for (int i = 0; i < n; i++) err += pow(x_ours[i] - x[i], 2);
+		printf("err: %lf\n", err);
+	}
+#endif
+    
   
   free(A);
   free(b);
@@ -188,7 +205,15 @@ int main(int argc, char** argv)
   MPI_Comm_size(MPI_COMM_WORLD, &world_size);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  // Weak scaling
+#ifdef CHECK
+	for (int i = 4; i < 1000; i++) benchmark(argc, argv, i);
+#elif (defined STRONG_SCALING)
+  int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
+  for (int n = n0; n <= NI; n <<= 1) {
+    benchmark(argc, argv, n);
+    if (rank == 0) printf("###\n");
+  }
+#else // Weak scaling
   int p = NUM_PROCESSORS;
   int i = 0;
   while (p > 1) {
@@ -198,13 +223,6 @@ int main(int argc, char** argv)
 
   int ns[6] = {5000, 6300, 7938, 10000, 12600, 15874 };
   benchmark(argc, argv, ns[i]);
-
-#ifdef STRONG_SCALING
-  int n0 = (NI < (1 << 10)) ? NI : (1 << 10);
-  for (int n = n0; n <= NI; n <<= 1) {
-    benchmark(argc, argv, n);
-    if (rank == 0) printf("###\n");
-  }
 #endif
 
   MPI_Finalize();

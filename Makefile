@@ -5,12 +5,14 @@ M = 1
 T = 1
 
 override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -O3 -march=native -fopenmp \
-		-DPOLYBENCH_TIME -DNUM_RUNS=15 -DNUM_PROCESSORS=$(N)
+		-DPOLYBENCH_TIME -DNUM_RUNS=1 -DNUM_PROCESSORS=$(N)
 
 # override CFLAGS += -std=c99 -D_POSIX_C_SOURCE=200112L -g -march=native -fopenmp \
 # 		-DPOLYBENCH_TIME -DNUM_RUNS=1 -fsanitize=address -DNUM_PROCESSORS=$(N)
 
-# override CFLAGS += -g -march=native -DMINI_DATASET -DPOLYBENCH_DUMP_ARRAYS -fopenmp -DNUM_RUNS=1 -DLU_BLOCK_SIZE=4
+# override CFLAGS += -g -march=native -DMINI_DATASET -fopenmp -DNUM_RUNS=1 -DNUM_PROCESSORS=$(N) -DCHECK
+
+# override CFLAGS += -O3 -march=native -fopenmp -DNUM_RUNS=1 -DNUM_PROCESSORS=$(N) -DCHECK
 
 SHARED = $(wildcard shared/*)
 GEMM = $(wildcard linear-algebra/blas/gemm/*)
@@ -39,7 +41,7 @@ lu: polybench.o lu.o
 	$(CC) $(CFLAGS) polybench.o lu.o -o lu
 
 ludcmp: polybench.o ludcmp.o
-	$(CC) $(CFLAGS) polybench.o ludcmp.o -o ludcmp
+	$(CC) $(CFLAGS) polybench.o ludcmp.o -lm -o ludcmp
 
 ludcmporiginal: polybench.o ludcmporiginal.o
 	$(CC) $(CFLAGS) polybench.o ludcmporiginal.o -o ludcmporiginal
