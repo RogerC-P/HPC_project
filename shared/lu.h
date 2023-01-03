@@ -137,12 +137,12 @@ void lu(int n, double *A) {
 
   int ldl = LU_BLOCK_SIZE;
 
-  double *U_p = (double *) malloc(LU_BLOCK_SIZE * mc * sizeof(double));
-  double *L_p = (double *) malloc(mr * ldl * sizeof(double));
+  double *U_p = (double *) malloc(LU_BLOCK_SIZE * mr * sizeof(double));
+  double *L_p = (double *) malloc(mc * ldl * sizeof(double));
 
   double *LU_k = (double *) malloc(LU_BLOCK_SIZE * LU_BLOCK_SIZE * sizeof(double));
-  double *U_k = (double *) malloc(LU_BLOCK_SIZE * mc * sizeof(double));
-  double *L_k = (double *) malloc(mr * ldl * sizeof(double));
+  double *U_k = (double *) malloc(LU_BLOCK_SIZE * mr * sizeof(double));
+  double *L_k = (double *) malloc(mc * ldl * sizeof(double));
 
   double *q = (double *) malloc(LU_BLOCK_SIZE * sizeof(double));
 
