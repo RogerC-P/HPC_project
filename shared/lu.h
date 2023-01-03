@@ -103,7 +103,7 @@ void lu(int n, double *A) {
 	int mr = compute_axis_size(n, psizes[0], col_idx);
 	int mc = compute_axis_size(n, psizes[0], row_idx);
 
-	int ldb = mc;
+	int ldb = mr;
 
   MPI_Comm row_comm;
   MPI_Comm_split(MPI_COMM_WORLD, row_idx, rank, &row_comm);
