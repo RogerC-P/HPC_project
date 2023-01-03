@@ -37,7 +37,7 @@ int min(int a, int b) {
 
 
 #ifndef LU_BLOCK_SIZE
-#define LU_BLOCK_SIZE (3 * GEMM_BLOCK_SIZE)
+#define LU_BLOCK_SIZE (2 * GEMM_BLOCK_SIZE)
 #endif
 
 int compute_axis_size(int n, int psize, int idx) {
@@ -103,7 +103,7 @@ void lu(int n, double *A) {
 	int mr = compute_axis_size(n, psizes[0], col_idx);
 	int mc = compute_axis_size(n, psizes[0], row_idx);
 
-  int ldb = mr;
+	int ldb = mc;
 
   MPI_Comm row_comm;
   MPI_Comm_split(MPI_COMM_WORLD, row_idx, rank, &row_comm);

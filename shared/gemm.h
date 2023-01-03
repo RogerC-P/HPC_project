@@ -1,7 +1,7 @@
 #include <immintrin.h>
 
 #ifndef GEMM_BLOCK_SIZE
-#define GEMM_BLOCK_SIZE 48
+#define GEMM_BLOCK_SIZE 64
 #endif
 
 inline __attribute__((always_inline)) void block_mul(int ni, int nj, double beta, double *C, int ldc) {
@@ -12,7 +12,7 @@ inline __attribute__((always_inline)) void block_mul(int ni, int nj, double beta
   }
 }
 
-#define RI 3
+#define RI 4
 #define RJ 4
 
 #if GEMM_BLOCK_SIZE % RI != 0
