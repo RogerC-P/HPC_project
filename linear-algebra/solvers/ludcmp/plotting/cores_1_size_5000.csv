@@ -1,0 +1,11 @@
+name,runtime,size,n_processors,nodes
+ludcmp-blocking-openmp-fma,6.203844,5000,1,1
+ludcmp-blocking-openmp-fma,6.021139,5000,1,1
+ludcmp-blocking-openmp-fma,6.109107,5000,1,1
+ludcmp-blocking-openmp-fma,6.115482,5000,1,1
+ludcmp-blocking-openmp-fma,6.05437,5000,1,1
+ludcmp-blocking-openmp-fma,6.013333,5000,1,1
+ludcmp-blocking-openmp-fma,11.932243,5000,1,1
+ludcmp-blocking-openmp-fma,11.949408,5000,1,1
+ludcmp-blocking-openmp-fma,11.897907,5000,1,1
+ludcmp-blocking-openmp-fma,12.109605,5000,1,1
