@@ -24,19 +24,64 @@
 #include "gemm.h"
 
 
+double **allocate_array(int row_dim, int col_dim) 
+{
+  double **result;
+  int i;
+
+  result=(double **)malloc(row_dim*sizeof(double *));  
+  result[0]=(double *)malloc(row_dim*col_dim*sizeof(double));
+  
+  for(i=1; i<row_dim; i++)
+	result[i]=result[i-1]+col_dim;
+  return result;
+}
+
+void deallocate_array(double **array, int row_dim) 
+{
+  int i;
+  
+  for(i=1; i<row_dim; i++)
+	array[i]=NULL;
+  free(array[0]);
+  free(array);
+}
+
+
+static
+void write_array(int ni, int nj, double **C, char *destination)
+{
+  int i, j;
+  int write = 0;
+  if (write == 1) {
+    FILE *fp = fopen(destination,"w+");
+
+    
+    for (i = 0; i < ni; i++)
+      for (j = 0; j < nj; j++) {
+        //if (i == 0) printf ("\n");      
+        //printf ("%f ", C[i][j]);
+        
+        if (j == 0) {
+          fprintf(fp, "\n");
+          fprintf(fp, "---%d-------------------------------\n", i);
+        }
+        fprintf(fp, "%f ", C[i][j]);
+      }
+    fclose(fp);
+  }
+}
+
 /* Array initialization. */
 static
 void init_array(int ni, int nj, int nk,
-		DATA_TYPE *alpha,
-		DATA_TYPE *beta,
-		DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
-		DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
-		DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj))
+		double **C,
+		double **A,
+		double **B)
 {
   int i, j;
 
-  *alpha = 1.5;
-  *beta = 1.2;
+  
   //*alpha = 1.0;
   //*beta = 1.0;
   for (i = 0; i < ni; i++)
@@ -48,42 +93,22 @@ void init_array(int ni, int nj, int nk,
   for (i = 0; i < nk; i++)
     for (j = 0; j < nj; j++)
       B[i][j] = (DATA_TYPE) (i*(j+2) % nj) / nj;
+
 }
 
 /* DCE code. Must scan the entire live-out data.
    Can be used also to check the correctness of the output. */
 static
-void print_array(int ni, int nj,
-		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj))
+void print_array(int ni, int nj, double **C)
 {
   int i, j;
 
-  //FILE *fp = fopen("/tmp/mpi.txt","w+");
-
-  POLYBENCH_DUMP_START;
-  POLYBENCH_DUMP_BEGIN("C");
   for (i = 0; i < ni; i++)
     for (j = 0; j < nj; j++) {
-	if ((i * ni + j) % 20 == 0) fprintf (POLYBENCH_DUMP_TARGET, "\n");      
-	    fprintf (POLYBENCH_DUMP_TARGET, DATA_PRINTF_MODIFIER, C[i][j]);
-      
-      //if (j == 0) {
-      //  fprintf(fp, "\n");
-      //}
-      //fprintf(fp, "%f ", C[i][j]);
-    }
-  //  fclose(fp);
-  POLYBENCH_DUMP_END("C");
-  POLYBENCH_DUMP_FINISH;
-}
-
-
-int getI(int rank) {
-  return rank / NJ;
-}
-
-int getJ(int rank) {
-  return rank % NJ;
+	if ((i * ni + j) % 20 == 0) printf ("\n");      
+	    printf ("%f ", C[i][j]);
+  
+  }
 }
 
 int getStart(int rank, int segmentLenght) {
@@ -121,21 +146,10 @@ static
 void kernel_gemm(int ni, int nj, int nk,
 		 DATA_TYPE alpha,
 		 DATA_TYPE beta,
-		 DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
-		 DATA_TYPE POLYBENCH_2D(A,NI,NK,ni,nk),
-		 DATA_TYPE POLYBENCH_2D(B,NK,NJ,nk,nj), int rank, int mpiSize)
+		 double **C,
+		 double **A,
+		 double **B, int rank, int mpiSize)
 {
-
-  
-
-  
-  int startJ = 0;
-  int endJ = nj;
-
-  int startI, endI;
-  getStartEnd(ni, rank, mpiSize, &startI, &endI);
-  
-  
 
 //BLAS PARAMS
 //TRANSA = 'N'
@@ -144,10 +158,53 @@ void kernel_gemm(int ni, int nj, int nk,
 //A is NIxNK
 //B is NKxNJ
 //C is NIxNJ
-#pragma scop
+
+int startI, endI;
+getStartEnd(ni, rank, mpiSize, &startI, &endI);
+
+
+endI = endI - startI;
+int nrOfElements = endI;
+startI = 0;
+// scatter only neccesary parts of A C to workers
+int *displsA = (int *)malloc(mpiSize * sizeof(int));
+int *displsC = (int *)malloc(mpiSize * sizeof(int));
+int *scountsA = (int *)malloc(mpiSize * sizeof(int));
+int *scountsC = (int *)malloc(mpiSize * sizeof(int));
+
+int offsetA = 0;
+int offsetC = 0;
+if (rank == 0) {
+  for (int i = 0; i < mpiSize; i++) {
+      int startI, endI;
+      getStartEnd(ni, i, mpiSize, &startI, &endI);
+      endI = endI - startI;
+      int nrOfElements = endI;
+      displsA[i] = offsetA;
+      int scountA = (nrOfElements + 1) * nk;
+      offsetA += scountA;
+      scountsA[i] = scountA;
+
+      displsC[i] = offsetC;
+      int scountC = (nrOfElements + 1) * nj;
+      offsetC += scountC;
+      scountsC[i] = scountC;
+  }
+}
+
+MPI_Scatterv(*A, scountsA, displsA, MPI_DOUBLE,
+				   *A, (nrOfElements + 1) * nk, MPI_DOUBLE,
+				   0, MPI_COMM_WORLD);
+MPI_Scatterv(*C, scountsC, displsC, MPI_DOUBLE,
+				   *C, (nrOfElements + 1) * nj, MPI_DOUBLE,
+				   0, MPI_COMM_WORLD);
+
+// copy entire B to everybody
+MPI_Bcast(*B, nk * nj, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
   
-
-
+  
+// kick off computations
 int BI = 20;
 int BJ = 40;
 int BK = 12;
@@ -163,10 +220,10 @@ int BK = 12;
         int v;
         for (v = j; v < j + BJ; v+=4) {
           //C[i][j] *= beta;
-            __m256d vc = _mm256_load_pd(&C[u][v]);
+            __m256d vc = _mm256_loadu_pd(&C[u][v]);
             __m256d vMultiResult = _mm256_mul_pd(vbeta, vc);                          
-            _mm256_store_pd(&C[u][v], vMultiResult);
-        }        
+            _mm256_storeu_pd(&C[u][v], vMultiResult);
+        }
       }
 
 
@@ -190,7 +247,7 @@ int BK = 12;
               __m256d a1 = _mm256_set1_pd(A[ui + 1][wk]);
               __m256d a2 = _mm256_set1_pd(A[ui + 2][wk]);
               __m256d a3 = _mm256_set1_pd(A[ui + 3][wk]);
-
+              
               __m256d b0 = _mm256_loadu_pd(&B[wk][vj + 0]);
               __m256d b1 = _mm256_loadu_pd(&B[wk][vj + 4]);
 
@@ -274,53 +331,18 @@ int BK = 12;
     }
   }
   
-#pragma endscop
+  
+
+// gather results
+
+MPI_Gatherv(*C, (nrOfElements + 1) * nj, MPI_DOUBLE,
+               *C, scountsC, displsC, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
 }
 
-void gatherResults(int ni, int nj,
-      DATA_TYPE POLYBENCH_2D(C,NI,NJ,ni,nj),
-      int rank,
-		 int size, 
-     int argc, char** argv, double ijResult[], int resultSize) {
-  
-  
-  
-  int startI, endI;
-  getStartEnd(ni, rank, size, &startI, &endI);
-  int resultIndex = -1;
-  if (rank != 0) {
-    for (int i = startI; i <= endI; ++i) {
-       for (int j = 0; j < nj; ++j) {
-          ijResult[++resultIndex] = C[i][j];
-       }
-    }
-    MPI_Send(ijResult, resultSize, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-  }
-
-  
-  if (rank == 0) {
-  
-    for (int worker = 1; worker < size; worker++) {
-      
-      MPI_Recv(ijResult, resultSize, MPI_DOUBLE, worker, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      
-      
-      getStartEnd(ni, worker, size, &startI, &endI);
-      
-
-      int resultIndex = -1;
-      for (int i = startI; i <= endI; ++i) {
-        for (int j = 0; j < nj; ++j) {
-            C[i][j] = ijResult[++resultIndex];
-        }
-      }
-    }
-    
-  }
-  
+int calcISize(int startI, int endI) {
+  return endI - startI + 1;
 }
-
-
 
 int main(int argc, char** argv)
 {
@@ -340,28 +362,42 @@ int rank, size;
       return 1;
     }
 
+
+
   /* Retrieve problem size. */
   int ni = NI;
   int nj = NJ;
   int nk = NK;
 
-  /* Variable declaration/allocation. */
-  DATA_TYPE alpha;
-  DATA_TYPE beta;
-  POLYBENCH_2D_ARRAY_DECL(C,DATA_TYPE,NI,NJ,ni,nj);
-  POLYBENCH_2D_ARRAY_DECL(A,DATA_TYPE,NI,NK,ni,nk);
-  POLYBENCH_2D_ARRAY_DECL(B,DATA_TYPE,NK,NJ,nk,nj);
-
-  /* Initialize array(s). */
-  init_array (ni, nj, nk, &alpha, &beta,
-	      POLYBENCH_ARRAY(C),
-	      POLYBENCH_ARRAY(A),
-	      POLYBENCH_ARRAY(B));
-
   int startI, endI;
-  getStartEnd(ni, size - 1, size, &startI, &endI);
-  int resultSize = (endI - startI + 1) * nj;
-  double *ijResult = malloc (sizeof (double) * resultSize);
+  getStartEnd(ni, rank, size, &startI, &endI);
+  int iSize = calcISize(startI, endI);
+  int iSizeToAllocate;
+  if (rank == 0) {
+    iSizeToAllocate = ni;
+  } else {
+    iSizeToAllocate = iSize;
+  }
+
+  /* Variable declaration/allocation. */
+  DATA_TYPE alpha = 1.5;
+  DATA_TYPE beta = 1.2;
+  double **A, **B, **C;
+
+  
+  C=allocate_array(iSizeToAllocate, nj);
+  A=allocate_array(iSizeToAllocate, nk);
+  B=allocate_array(nk, nj);
+  
+  /* Initialize array(s). */
+  if (rank == 0) {
+    init_array (ni, nj, nk,
+	      C,
+	      A,
+	      B);
+    
+  }
+
   /* Start timer. */
   if (rank == 0) {
     polybench_start_instruments;
@@ -370,34 +406,28 @@ int rank, size;
   /* Run kernel. */
   kernel_gemm (ni, nj, nk,
 	       alpha, beta,
-	       POLYBENCH_ARRAY(C),
-	       POLYBENCH_ARRAY(A),
-	       POLYBENCH_ARRAY(B),
+	       C,
+	       A,
+	       B,
          rank, size);
 
   /* Stop and print timer. */
-  // wait for all workers to finish
-  MPI_Barrier(MPI_COMM_WORLD);
   if (rank == 0) {
     // stop time only when all workers are done
     polybench_stop_instruments;
   }
 
-  //polybench_print_instruments;
   
-  // gather results from all workers and print them out
-  // gathering is not timed
-  gatherResults(ni, nj, POLYBENCH_ARRAY(C), rank, size, argc, argv, ijResult, resultSize);
 
   if (rank == 0) {
     polybench_print_instruments;
-    polybench_prevent_dce(print_array(ni, nj, POLYBENCH_ARRAY(C)));
+    polybench_prevent_dce(print_array(ni, nj, C));
   }
 
   /* Be clean. */
-  POLYBENCH_FREE_ARRAY(C);
-  POLYBENCH_FREE_ARRAY(A);
-  POLYBENCH_FREE_ARRAY(B);
+  deallocate_array(C, iSizeToAllocate);
+  deallocate_array(A, iSizeToAllocate);
+  deallocate_array(B, nk);
 
   MPI_Finalize();
   return 0;
