@@ -1,0 +1,5 @@
+#!/bin/bash
+sh submit-gemm.sh STRONG_DATASET_1024 DATASET_1024
+sh submit-gemm.sh STRONG_DATASET_2048 DATASET_2048
+sh submit-gemm.sh STRONG_DATASET_4096 DATASET_4096
+sh submit-gemm.sh STRONG_DATASET_8192 DATASET_8192
