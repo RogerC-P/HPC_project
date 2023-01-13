@@ -20,10 +20,10 @@
 /* Array initialization. */
 static
 void init_array (int n,
-		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		 DATA_TYPE POLYBENCH_1D(b,N,n),
-		 DATA_TYPE POLYBENCH_1D(x,N,n),
-		 DATA_TYPE POLYBENCH_1D(y,N,n))
+		 DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		 DATA_TYPE POLYBENCH_1D(b,NN,n),
+		 DATA_TYPE POLYBENCH_1D(x,NN,n),
+		 DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
   int i, j;
   DATA_TYPE fn = (DATA_TYPE)n;
@@ -47,8 +47,9 @@ void init_array (int n,
 
   /* Make the matrix positive semi-definite. */
   /* not necessary for LU, but using same code as cholesky */
+  /*
   int r,s,t;
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, NN, NN, n, n);
   for (r = 0; r < n; ++r)
     for (s = 0; s < n; ++s)
       (POLYBENCH_ARRAY(B))[r][s] = 0;
@@ -60,7 +61,7 @@ void init_array (int n,
       for (s = 0; s < n; ++s)
 	A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
   POLYBENCH_FREE_ARRAY(B);
-
+    */
 }
 
 
@@ -68,7 +69,7 @@ void init_array (int n,
    Can be used also to check the correctness of the output. */
 static
 void print_array(int n,
-		 DATA_TYPE POLYBENCH_1D(x,N,n))
+		 DATA_TYPE POLYBENCH_1D(x,NN,n))
 
 {
   int i;
@@ -93,7 +94,7 @@ DATA_TYPE min(DATA_TYPE x, DATA_TYPE y) {
 }
 
 
-void invert_unity_lower_triangular_matrix_opt_avx_b16(int d, DATA_TYPE L[d][d]) {
+void invert_unity_lower_triangular_matrix(int d, DATA_TYPE L[d][d]) {
     DATA_TYPE b[d][d];
     memset(b, 0, sizeof(b));
 
@@ -108,19 +109,18 @@ void invert_unity_lower_triangular_matrix_opt_avx_b16(int d, DATA_TYPE L[d][d]) 
             DATA_TYPE sum3 = 0.0;
             DATA_TYPE sum4 = 0.0;
 
-            int krest = j;
-            for (int k = krest; k+4 <= i; k+=4) {
+            int k = j;
+            for (; k+4 <= i; k+=4) {
                 sum1 += L[i][k+0] * b[k+0][j];
                 sum2 += L[i][k+1] * b[k+1][j];
                 sum3 += L[i][k+2] * b[k+2][j];
                 sum4 += L[i][k+3] * b[k+3][j];
-                krest = k + 4;
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int k = krest; k < i; k++) {
+            for (; k < i; k++) {
                 sum1 += L[i][k] * b[k][j];
 
                 #ifdef COUNT_FLOPS
@@ -137,7 +137,7 @@ void invert_unity_lower_triangular_matrix_opt_avx_b16(int d, DATA_TYPE L[d][d]) 
     memcpy(L, b, sizeof(b));
 }
 
-void invert_upper_triangular_matrix_opt_avx_b16(int d, DATA_TYPE U[d][d]) {
+void invert_upper_triangular_matrix(int d, DATA_TYPE U[d][d]) {
     DATA_TYPE c[d][d];
     memset(c, 0, sizeof(c));
 
@@ -149,15 +149,32 @@ void invert_upper_triangular_matrix_opt_avx_b16(int d, DATA_TYPE U[d][d]) {
         #endif
 
         for (int j = d-1; j >= i + 1; j--) {
-            DATA_TYPE sum = 0.0;
-            for (int k = i+1; k <= j; k++) {
-                sum += U[i][k] * c[k][j];
+            DATA_TYPE sum1 = 0.0;
+            DATA_TYPE sum2 = 0.0;
+            DATA_TYPE sum3 = 0.0;
+            DATA_TYPE sum4 = 0.0;
+            int k = i+1;
+            for (; k+4 <= j; k+=4) {
+                sum1 += U[i][k] * c[k][j];
+                sum2 += U[i][k+1] * c[k+1][j];
+                sum3 += U[i][k+2] * c[k+2][j];
+                sum4 += U[i][k+3] * c[k+3][j];
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 2; 
                 #endif
             }
-            c[i][j] = -sum / U[i][i];
+            for (; k <= j; k++) {
+                sum1 += U[i][k] * c[k][j];
+ 
+                #ifdef COUNT_FLOPS
+                FLOP_COUNTER += 2; 
+                #endif
+            }
+            sum1 += sum2;
+            sum3 += sum4;
+            sum1 += sum3;
+            c[i][j] = -sum1 / U[i][i];
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 1; 
@@ -218,19 +235,18 @@ void block_lu_factorization_recursive_opt_avx_b16(
             DATA_TYPE sum3 = 0.0;
             DATA_TYPE sum4 = 0.0;
 
-            int mrest = 0;
-            for (int m = mrest; m+4 <= k; m+=4) {
+            int m = 0;
+            for (; m+4 <= k; m+=4) {
                 sum1 += l[k][m+0] * u[m+0][j];
                 sum2 += l[k][m+1] * u[m+1][j];
                 sum3 += l[k][m+2] * u[m+2][j];
                 sum4 += l[k][m+3] * u[m+3][j];
-                mrest = m + 4;
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int m = mrest; m < k; m++) {
+            for (; m < k; m++) {
                 sum1 += l[k][m] * u[m][j];
 
                 #ifdef COUNT_FLOPS
@@ -253,19 +269,18 @@ void block_lu_factorization_recursive_opt_avx_b16(
             DATA_TYPE sum3 = 0.0;
             DATA_TYPE sum4 = 0.0;
 
-            int mrest = 0;
-            for (int m = mrest; m+4 <= k; m+=4) {
+            int m = 0;
+            for (; m+4 <= k; m+=4) {
                 sum1 += l[i][m+0] * u[m+0][k];
                 sum2 += l[i][m+1] * u[m+1][k];
                 sum3 += l[i][m+2] * u[m+2][k];
                 sum4 += l[i][m+3] * u[m+3][k];
-                mrest = m + 4;
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int m = mrest; m < k; m++) {
+            for (; m < k; m++) {
                 sum1 += l[i][m] * u[m][k];
 
                 #ifdef COUNT_FLOPS
@@ -292,8 +307,8 @@ void block_lu_factorization_recursive_opt_avx_b16(
     }
 
     // Compute the inverse in-place.
-    invert_unity_lower_triangular_matrix_opt_avx_b16(s, l);
-    invert_upper_triangular_matrix_opt_avx_b16(s, u);
+    invert_unity_lower_triangular_matrix(s, l);
+    invert_upper_triangular_matrix(s, u);
 
     
     // Step 2: Compute U_12 = L_11^(-1) A_12
@@ -305,19 +320,18 @@ void block_lu_factorization_recursive_opt_avx_b16(
             DATA_TYPE sum3 = 0.0;
             DATA_TYPE sum4 = 0.0;
 
-            int krest = 0;
-            for (int k = krest; k+4 <= s; k+=4) {
+            int k = 0;
+            for (; k+4 <= (i+1); k+=4) {
                 sum1 += l[i][k+0] * A[o + k+0][o + s + j];
                 sum2 += l[i][k+1] * A[o + k+1][o + s + j];
                 sum3 += l[i][k+2] * A[o + k+2][o + s + j];
                 sum4 += l[i][k+3] * A[o + k+3][o + s + j];
-                krest = k + 4;
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int k = krest; k < s; k++) {
+            for (; k < (i+1); k++) {
                 sum1 += l[i][k] * A[o + k][o + s + j];
 
                 #ifdef COUNT_FLOPS
@@ -340,19 +354,18 @@ void block_lu_factorization_recursive_opt_avx_b16(
             DATA_TYPE sum3 = 0.0;
             DATA_TYPE sum4 = 0.0;
 
-            int krest = 0;
-            for (int k = krest; k+4 <= s; k+=4) {
+            int k = 0;
+            for (; k+4 <= (j+1); k+=4) {
                 sum1 += A[o + s + i][o + k+0] * u[k+0][j];
                 sum2 += A[o + s + i][o + k+1] * u[k+1][j];
                 sum3 += A[o + s + i][o + k+2] * u[k+2][j];
                 sum4 += A[o + s + i][o + k+3] * u[k+3][j];
-                krest = k + 4;
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 8; 
                 #endif
             }
-            for (int k = krest; k < s; k++) {
+            for (; k < (j+1); k++) {
                 sum1 += A[o + s + i][o + k] * u[k][j];
 
                 #ifdef COUNT_FLOPS
@@ -369,8 +382,8 @@ void block_lu_factorization_recursive_opt_avx_b16(
     // Compute A_22'
     #pragma omp parallel for
     for (int i = o; i < n; i++) {
-        int jrest = o;
-        for (int j = jrest; j+8 <= n; j+=8) {
+        int j = o;
+        for (; j+8 <= n; j+=8) {
             __m256d sumv1 = _mm256_setzero_pd();
             __m256d sumv2 = _mm256_setzero_pd();
             __m256d sumv3 = _mm256_setzero_pd();
@@ -380,8 +393,8 @@ void block_lu_factorization_recursive_opt_avx_b16(
             __m256d sumv7 = _mm256_setzero_pd();
             __m256d sumv8 = _mm256_setzero_pd();
 
-            int krest = 0;
-            for (int k = krest; k+4 <= s; k+=4) {
+            int k = 0;
+            for (; k+4 <= s; k+=4) {
                 __m256d LL = _mm256_loadu_pd(&L[i][o+k]); 
 
                 __m256d L1 = _mm256_set1_pd(((double *) &LL)[0]); 
@@ -408,7 +421,6 @@ void block_lu_factorization_recursive_opt_avx_b16(
                 sumv6 = _mm256_fmadd_pd(L2, U6, sumv6);
                 sumv7 = _mm256_fmadd_pd(L3, U7, sumv7);
                 sumv8 = _mm256_fmadd_pd(L4, U8, sumv8);
-                krest = k + 8;
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 64; 
@@ -432,7 +444,7 @@ void block_lu_factorization_recursive_opt_avx_b16(
             __m256d A1 = _mm256_loadu_pd(&A[i][j]);
             __m256d A2 = _mm256_loadu_pd(&A[i][j+4]);
 
-            for (int k = krest; k < s; k++) {
+            for (; k < s; k++) {
                 __m256d L1 = _mm256_set1_pd(L[i][o + k]); 
                 __m256d U1 = _mm256_loadu_pd(&U[o+k][j]);
                 sumv1 = _mm256_fmadd_pd(L1, U1, sumv1);
@@ -455,10 +467,9 @@ void block_lu_factorization_recursive_opt_avx_b16(
             FLOP_COUNTER += 8; 
             #endif
 
-            jrest = j + 8;
         }
 
-        for (int j = jrest; j < n; j++) {
+        for (; j < n; j++) {
             DATA_TYPE sum1 = 0.0;
             DATA_TYPE sum2 = 0.0;
             DATA_TYPE sum3 = 0.0;
@@ -504,10 +515,10 @@ void block_lu_factorization_recursive_opt_avx_b16(
 // Solves Ax=b for x
 // Modifies A, x, and b.
 void block_lu_factorization_opt_avx_double_b16(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n)) {
+		   DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,NN,n),
+		   DATA_TYPE POLYBENCH_1D(x,NN,n),
+		   DATA_TYPE POLYBENCH_1D(y,NN,n)) {
     int s = min(16, n);
     //DATA_TYPE L[n][n];
     //DATA_TYPE U[n][n];
@@ -521,15 +532,14 @@ void block_lu_factorization_opt_avx_double_b16(int n,
         __m256d sum1 = _mm256_set1_pd(0.0);
         __m256d sum2 = _mm256_set1_pd(0.0);
 
-        int jrest = 0;
-        for (int j = jrest; j+8<= i; j+=8) {
+        int j = 0;
+        for (; j+8<= i; j+=8) {
             __m256d L1 = _mm256_loadu_pd(&L[i][j]);
             __m256d y1 = _mm256_loadu_pd(&y[j]);
             __m256d L2 = _mm256_loadu_pd(&L[i][j+4]);
             __m256d y2 = _mm256_loadu_pd(&y[j+4]);
             sum1 = _mm256_fmadd_pd(L1, y1, sum1);
             sum2 = _mm256_fmadd_pd(L2, y2, sum2);
-            jrest = j + 8;
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 16; 
@@ -548,7 +558,7 @@ void block_lu_factorization_opt_avx_double_b16(int n,
             FLOP_COUNTER += 7; 
         #endif
 
-        for (int j = jrest; j < i; j++) {
+        for (; j < i; j++) {
             sum += L[i][j] * y[j];
 
             #ifdef COUNT_FLOPS
@@ -569,19 +579,18 @@ void block_lu_factorization_opt_avx_double_b16(int n,
         DATA_TYPE sum3 = 0.0;
         DATA_TYPE sum4 = 0.0;
 
-        int jrest = i + 1;
-        for (int j = jrest; j+4 <= n; j+=4) {
+        int j = i + 1;
+        for (; j+4 <= n; j+=4) {
             sum1 += U[i][j+0] * x[j+0];
             sum1 += U[i][j+1] * x[j+1];
             sum1 += U[i][j+2] * x[j+2];
             sum1 += U[i][j+3] * x[j+3];
-            jrest = j + 4;
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 8; 
             #endif
         }
-        for (int j = jrest; j < n; j++) {
+        for (; j < n; j++) {
             sum1 += U[i][j] * x[j];
 
             #ifdef COUNT_FLOPS
@@ -607,10 +616,10 @@ void block_lu_factorization_opt_avx_double_b16(int n,
    including the call and return. */
 static
 void kernel_ludcmp(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n))
+		   DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,NN,n),
+		   DATA_TYPE POLYBENCH_1D(x,NN,n),
+		   DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
   int i,j,k;
   DATA_TYPE w;
@@ -624,13 +633,13 @@ void kernel_ludcmp(int n,
 int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
-  int n = N;
+  int n = NN;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, NN, NN, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, NN, n);
 
 
   /* Initialize array(s). */

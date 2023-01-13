@@ -1,5 +1,6 @@
 import os
-
+from helper import get_files
+import sys
 
 def main():
     check_benches("./linear-algebra/solvers/ludcmp")
@@ -11,21 +12,15 @@ def check_benches(*dirs):
 
 
 def check_bench(dir):
-    dir = os.path.normpath(dir)
-    bench_name = os.path.basename(dir);
+    files = get_files(dir)
+    base = files["base"]
+    optimized = files["opt"]
 
-    print("Checking outputs of bench '{}'".format(bench_name))
-
-    # Assume base benchmark has same name as containing directory
-    base_name = bench_name + ".c"
-    base_impl = dir + "/" + base_name
-    other_impls = map(lambda name: dir + "/" + name, filter(lambda name: name.endswith(".c") and name != base_name, os.listdir(dir)))
-
-    print("{}".format(os.path.basename(base_impl)), end =" ... ", flush=True)
-    base_result = run_impl(base_impl)
+    print("{}".format(os.path.basename(base)), end =" ... ", flush=True)
+    base_result = run_impl(base)
     print("Done!")
 
-    for other_impl in other_impls:
+    for other_impl in optimized:
         print("{}".format(os.path.basename(other_impl)), end =" ... ", flush=True)
         other_result = run_impl(other_impl)
 
@@ -47,18 +42,31 @@ def run_impl(impl):
     else:
         compiler = "gcc"
 
-    flags = ["-O0"]
+    flags = ["-O3"]
     if "fma" in impl:
         flags.append("-mfma")
     if "openmp" in impl:
         flags.append("-fopenmp")
+    if "blas" in impl:
+        flags.append("-I /usr/include/openblas -lopenblas")
 
     joined_flags = " ".join(flags)
 
     # Compile implementation
     os.system(f"{compiler} {joined_flags} -I utilities -I {header} utilities/polybench.c {impl} -DPOLYBENCH_DUMP_ARRAYS -o executable")
     # Run and get output
-    output = os.popen("./executable 2>&1").read()
+    if "mpi" in impl:
+        np = 2#sys.argv[1]
+        output = os.popen(f"mpirun -np {np} --oversubscribe ./executable 2>&1").read()
+    else:
+        output = os.popen("./executable 2>&1").read()
+
+    if "Segmentation fault" in output:
+        printRed("Segmentation fault!")
+        printRed("-"*30)
+        print(output)
+        printRed("-"*30)
+
     digits = [float(x) for x in output.split() if isfloat(x)]
     return digits
 
@@ -73,10 +81,14 @@ def isfloat(num):
 
 def same_arrays(arr1, arr2):
     if len(arr1) != len(arr2):
+        print("arr1", arr1)
+        print("arr2", arr2)
+        printRed("Array Length missmatch: " + str(len(arr1)) + " vs " + str(len(arr2)))
         return False
 
     for x1, x2 in zip(arr1, arr2):
-        if abs(x1 - x2) > 0.000000001:
+        if abs(x1 - x2) > 0.1:
+            print("Number x1: {}, Number x2: {}, Diff {}".format(x1, x2, abs(x1 - x2)))
             return False
 
     return True

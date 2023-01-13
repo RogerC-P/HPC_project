@@ -20,6 +20,9 @@
 /* Include benchmark-specific header. */
 #include "ludcmp.h"
 
+// See: https://www.intel.com/content/www/us/en/develop/documentation/onemkl-windows-developer-guide/top/language-specific-usage-options/mixed-language-programming-with-onemkl/call-blas-funcs-return-complex-values-in-c-code.html#call-blas-funcs-return-complex-values-in-c-code_XREF_EXAMPLE_6_3_USING_CBLAS
+#include "mkl.h"
+#include <assert.h>
 
 /* Array initialization. */
 static
@@ -66,6 +69,7 @@ void init_array (int n,
 	A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
   POLYBENCH_FREE_ARRAY(B);
   */
+
 }
 
 
@@ -98,43 +102,13 @@ void kernel_ludcmp(int n,
 		   DATA_TYPE POLYBENCH_1D(x,NN,n),
 		   DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
-  int i, j, k;
+  int ipiv[n];
 
-  DATA_TYPE w;
-
-#pragma scop
-  for (i = 0; i < _PB_N; i++) {
-    for (j = 0; j <i; j++) {
-       w = A[i][j];
-       for (k = 0; k < j; k++) {
-          w -= A[i][k] * A[k][j];
-       }
-        A[i][j] = w / A[j][j];
-    }
-   for (j = i; j < _PB_N; j++) {
-       w = A[i][j];
-       for (k = 0; k < i; k++) {
-          w -= A[i][k] * A[k][j];
-       }
-       A[i][j] = w;
-    }
-  }
-
-  for (i = 0; i < _PB_N; i++) {
-     w = b[i];
-     for (j = 0; j < i; j++)
-        w -= A[i][j] * y[j];
-     y[i] = w;
-  }
-
-   for (i = _PB_N-1; i >=0; i--) {
-     w = y[i];
-     for (j = i+1; j < _PB_N; j++)
-        w -= A[i][j] * x[j];
-     x[i] = w / A[i][i];
-  }
-#pragma endscop
-
+  #pragma scop
+  LAPACKE_dgetrf(CblasRowMajor, n, n, (double *) A, n, ipiv);
+  LAPACKE_dgetrs(CblasRowMajor, 'N', n, 1, (const double *) A, n, ipiv, b, 1); 	
+  memcpy(x, b, n * sizeof(double));
+  #pragma endscop
 }
 
 
@@ -149,6 +123,7 @@ int main(int argc, char** argv)
   POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, NN, n);
   POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, NN, n);
 
+  printf(openblas_get_config());
 
   /* Initialize array(s). */
   init_array (n,

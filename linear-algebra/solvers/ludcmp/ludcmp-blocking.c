@@ -16,10 +16,10 @@
 /* Array initialization. */
 static
 void init_array (int n,
-		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		 DATA_TYPE POLYBENCH_1D(b,N,n),
-		 DATA_TYPE POLYBENCH_1D(x,N,n),
-		 DATA_TYPE POLYBENCH_1D(y,N,n))
+		 DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		 DATA_TYPE POLYBENCH_1D(b,NN,n),
+		 DATA_TYPE POLYBENCH_1D(x,NN,n),
+		 DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
   int i, j;
   DATA_TYPE fn = (DATA_TYPE)n;
@@ -43,8 +43,9 @@ void init_array (int n,
 
   /* Make the matrix positive semi-definite. */
   /* not necessary for LU, but using same code as cholesky */
+  /*
   int r,s,t;
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, NN, NN, n, n);
   for (r = 0; r < n; ++r)
     for (s = 0; s < n; ++s)
       (POLYBENCH_ARRAY(B))[r][s] = 0;
@@ -56,7 +57,7 @@ void init_array (int n,
       for (s = 0; s < n; ++s)
 	A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
   POLYBENCH_FREE_ARRAY(B);
-
+    */
 }
 
 
@@ -64,7 +65,7 @@ void init_array (int n,
    Can be used also to check the correctness of the output. */
 static
 void print_array(int n,
-		 DATA_TYPE POLYBENCH_1D(x,N,n))
+		 DATA_TYPE POLYBENCH_1D(x,NN,n))
 
 {
   int i;
@@ -98,15 +99,33 @@ void invert_unity_lower_triangular_matrix(int d, DATA_TYPE L[d][d]) {
 
     for (int i = 1; i < d; i++) {
         for (int j = 0; j < i; j++) {
-            DATA_TYPE sum = 0.0;
-            for (int k = j; k < i; k++) {
-                sum += L[i][k] * b[k][j];
+            DATA_TYPE sum1 = 0.0;
+            DATA_TYPE sum2 = 0.0;
+            DATA_TYPE sum3 = 0.0;
+            DATA_TYPE sum4 = 0.0;
+
+            int k = j;
+            for (; k+4 <= i; k+=4) {
+                sum1 += L[i][k+0] * b[k+0][j];
+                sum2 += L[i][k+1] * b[k+1][j];
+                sum3 += L[i][k+2] * b[k+2][j];
+                sum4 += L[i][k+3] * b[k+3][j];
+
+                #ifdef COUNT_FLOPS
+                FLOP_COUNTER += 8; 
+                #endif
+            }
+            for (; k < i; k++) {
+                sum1 += L[i][k] * b[k][j];
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 2; 
                 #endif
             }
-            b[i][j] = -sum;
+            sum1 += sum2;
+            sum3 += sum4;
+            sum1 += sum3;
+            b[i][j] = -sum1;
         }
     }
 
@@ -125,15 +144,32 @@ void invert_upper_triangular_matrix(int d, DATA_TYPE U[d][d]) {
         #endif
 
         for (int j = d-1; j >= i + 1; j--) {
-            DATA_TYPE sum = 0.0;
-            for (int k = i+1; k <= j; k++) {
-                sum += U[i][k] * c[k][j];
+            DATA_TYPE sum1 = 0.0;
+            DATA_TYPE sum2 = 0.0;
+            DATA_TYPE sum3 = 0.0;
+            DATA_TYPE sum4 = 0.0;
+            int k = i+1;
+            for (; k+4 <= j; k+=4) {
+                sum1 += U[i][k] * c[k][j];
+                sum2 += U[i][k+1] * c[k+1][j];
+                sum3 += U[i][k+2] * c[k+2][j];
+                sum4 += U[i][k+3] * c[k+3][j];
 
                 #ifdef COUNT_FLOPS
                 FLOP_COUNTER += 2; 
                 #endif
             }
-            c[i][j] = -sum / U[i][i];
+            for (; k <= j; k++) {
+                sum1 += U[i][k] * c[k][j];
+ 
+                #ifdef COUNT_FLOPS
+                FLOP_COUNTER += 2; 
+                #endif
+            }
+            sum1 += sum2;
+            sum3 += sum4;
+            sum1 += sum3;
+            c[i][j] = -sum1 / U[i][i];
 
             #ifdef COUNT_FLOPS
             FLOP_COUNTER += 1; 
@@ -299,10 +335,10 @@ void block_lu_factorization_recursive(
 // Solves Ax=b for x
 // Modifies A, x, and b.
 void block_lu_factorization(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n)
+		   DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,NN,n),
+		   DATA_TYPE POLYBENCH_1D(x,NN,n),
+		   DATA_TYPE POLYBENCH_1D(y,NN,n)
 ) {
 
     int s = min(16, n);
@@ -356,10 +392,10 @@ void block_lu_factorization(int n,
    including the call and return. */
 static
 void kernel_ludcmp(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n))
+		   DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,NN,n),
+		   DATA_TYPE POLYBENCH_1D(x,NN,n),
+		   DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
   int i,j,k;
   DATA_TYPE w;
@@ -406,13 +442,13 @@ void kernel_ludcmp(int n,
 int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
-  int n = N;
+  int n = NN;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, NN, NN, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, NN, n);
 
 
   /* Initialize array(s). */

@@ -20,14 +20,17 @@
 /* Include benchmark-specific header. */
 #include "ludcmp.h"
 
+#include <cblas.h>
+#include <lapacke.h>
+#include <assert.h>
 
 /* Array initialization. */
 static
 void init_array (int n,
-		 DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		 DATA_TYPE POLYBENCH_1D(b,N,n),
-		 DATA_TYPE POLYBENCH_1D(x,N,n),
-		 DATA_TYPE POLYBENCH_1D(y,N,n))
+		 DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		 DATA_TYPE POLYBENCH_1D(b,NN,n),
+		 DATA_TYPE POLYBENCH_1D(x,NN,n),
+		 DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
   int i, j;
   DATA_TYPE fn = (DATA_TYPE)n;
@@ -51,8 +54,9 @@ void init_array (int n,
 
   /* Make the matrix positive semi-definite. */
   /* not necessary for LU, but using same code as cholesky */
+  /*
   int r,s,t;
-  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, N, N, n, n);
+  POLYBENCH_2D_ARRAY_DECL(B, DATA_TYPE, NN, NN, n, n);
   for (r = 0; r < n; ++r)
     for (s = 0; s < n; ++s)
       (POLYBENCH_ARRAY(B))[r][s] = 0;
@@ -64,6 +68,7 @@ void init_array (int n,
       for (s = 0; s < n; ++s)
 	A[r][s] = (POLYBENCH_ARRAY(B))[r][s];
   POLYBENCH_FREE_ARRAY(B);
+  */
 
 }
 
@@ -72,7 +77,7 @@ void init_array (int n,
    Can be used also to check the correctness of the output. */
 static
 void print_array(int n,
-		 DATA_TYPE POLYBENCH_1D(x,N,n))
+		 DATA_TYPE POLYBENCH_1D(x,NN,n))
 
 {
   int i;
@@ -92,61 +97,31 @@ void print_array(int n,
    including the call and return. */
 static
 void kernel_ludcmp(int n,
-		   DATA_TYPE POLYBENCH_2D(A,N,N,n,n),
-		   DATA_TYPE POLYBENCH_1D(b,N,n),
-		   DATA_TYPE POLYBENCH_1D(x,N,n),
-		   DATA_TYPE POLYBENCH_1D(y,N,n))
+		   DATA_TYPE POLYBENCH_2D(A,NN,NN,n,n),
+		   DATA_TYPE POLYBENCH_1D(b,NN,n),
+		   DATA_TYPE POLYBENCH_1D(x,NN,n),
+		   DATA_TYPE POLYBENCH_1D(y,NN,n))
 {
-  int i, j, k;
+  int ipiv[n];
 
-  DATA_TYPE w;
-
-#pragma scop
-  for (i = 0; i < _PB_N; i++) {
-    for (j = 0; j <i; j++) {
-       w = A[i][j];
-       for (k = 0; k < j; k++) {
-          w -= A[i][k] * A[k][j];
-       }
-        A[i][j] = w / A[j][j];
-    }
-   for (j = i; j < _PB_N; j++) {
-       w = A[i][j];
-       for (k = 0; k < i; k++) {
-          w -= A[i][k];
-       }
-       A[i][j] = w;
-    }
-  }
-
-  for (i = 0; i < _PB_N; i++) {
-     w = b[i];
-     for (j = 0; j < i; j++)
-        w -= A[i][j];
-     y[i] = w;
-  }
-
-   for (i = _PB_N-1; i >=0; i--) {
-     w = y[i];
-     for (j = i+1; j < _PB_N; j++)
-        w -= A[i][j] * x[j];
-     x[i] = w / A[i][i];
-  }
-#pragma endscop
-
+  #pragma scop
+  LAPACKE_dgetrf(CblasRowMajor, n, n, (double *) A, n, ipiv);
+  LAPACKE_dgetrs(CblasRowMajor, 'N', n, 1, (const double *) A, n, ipiv, b, 1); 	
+  memcpy(x, b, n * sizeof(double));
+  #pragma endscop
 }
 
 
 int main(int argc, char** argv)
 {
   /* Retrieve problem size. */
-  int n = N;
+  int n = NN;
 
   /* Variable declaration/allocation. */
-  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, N, N, n, n);
-  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, N, n);
-  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, N, n);
+  POLYBENCH_2D_ARRAY_DECL(A, DATA_TYPE, NN, NN, n, n);
+  POLYBENCH_1D_ARRAY_DECL(b, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(x, DATA_TYPE, NN, n);
+  POLYBENCH_1D_ARRAY_DECL(y, DATA_TYPE, NN, n);
 
 
   /* Initialize array(s). */
