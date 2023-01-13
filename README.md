@@ -4,7 +4,9 @@
 
 |Implementation Name|Link|Notes|
 |---|---|---|
-||||
+|`gemm-mpi`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/blas/gemm/gemm-mpi.c) [Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/blas/gemm/customdatasizes/gemm.h)||
+|`gemm-openmp`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/blas/gemm/gemm-openmp.c) [Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/blas/gemm/customdatasizes/gemm.h)||
+|`compilation scripts and other`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/tree/master/scripts/gemm)||
 
 ## LUDCMP Implementations
 
