@@ -7,6 +7,7 @@
 |`gemm-openmp`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/georg/shared/gemm.h)|
 |`gemm-mkl`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/mkl/linear-algebra/blas/gemm/gemm.c)||
 |`gemm-openblas`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/openblas/linear-algebra/blas/gemm/gemm.c)||
+|`gemm-mpi`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/blas/gemm/gemm-mpi.c) [Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/blas/gemm/customdatasizes/gemm.h)||
 
 ## LUDCMP Implementations
 
