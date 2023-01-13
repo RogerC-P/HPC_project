@@ -1,11 +1,18 @@
 # Polybench Parallelization
 
-## Checking the implementations
+## GEMM Implementations
 
-Use the script `scripts/checkImpls.py` to check the outputs of our polybench implementations.
+|Implementation Name|Link|
+|---|---|
+|||
 
-## Timing the implementations
+## LUDCMP Implementations
 
-Use the script `scripts/timeImpls.py` to time our polybench implementations.
-
-Our BLAS implementation is written in Rust. It is found in the directory `ludcmp-blas`. Run it with `cargo run --release`.
+|Implementation Name|Link|
+|---|---|
+|`ludcmp-polybench`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/solvers/ludcmp/ludcmp.c)|
+|`ludcmp-blas`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/solvers/ludcmp/ludcmp-blas.c)|
+|`ludcmp-mkl`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/solvers/ludcmp/ludcmp-mkl.c)|
+|`ludcmp-blocking`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/solvers/ludcmp/ludcmp-blocking.c)|
+|`ludcmp-blocking-openmp`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp.c)|
+|`ludcmp-blocking-openmp-fma`|[Open](https://github.com/fabianboesiger/PolyBenchC-4.2.1/blob/master/linear-algebra/solvers/ludcmp/ludcmp-blocking-openmp-fma.c)|
